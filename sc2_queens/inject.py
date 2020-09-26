@@ -1,0 +1,2 @@
+class Inject:
+    pass

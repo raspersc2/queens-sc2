@@ -1,0 +1,2 @@
+class Defence:
+    pass
