@@ -20,8 +20,14 @@ class Queens:
         self.defence_queen_tags: List[int]
         self.inject_targets: Dict
 
-    async def auto_queen(self, queens: Optional[Units]) -> None:
-        queens: Units = self.bot.units(UnitID.QUEEN)
+    async def manage_queens(
+        self, queens: Optional[Units] = None, **queen_policy
+    ) -> None:
+        policy: Dict = self._read_queen_policy(**queen_policy)
+        # print(policy)
+        if queens is None:
+            queens: Units = self.bot.units(UnitID.QUEEN)
+
         for queen in queens:
             queen.attack(self.bot.enemy_start_locations[0])
 
@@ -34,10 +40,31 @@ class Queens:
         safe_location: Optional[Point2],
         should_retreat: bool = True,
     ) -> None:
-        pass
+        await self.creep.spread_creep(queens)
+
+    async def spread_existing_tumors(self, tumors: Optional[Units]):
+        await self.creep.spread_existing_tumors(tumors)
 
     async def inject_bases(self, queens: Units) -> None:
         pass
 
     def _assign_queen_roles(self) -> None:
         pass
+
+    def _read_queen_policy(self, **queen_policy: Dict) -> Dict:
+        """
+        Read the queen policy the user passed in, add default
+        params for missing values
+
+        :param queen_policy:
+        :type queen_policy: Dict
+        :return: new policy with default params for missing values
+        :rtype: Dict
+        """
+        creep_activated = queen_policy.get("creep_activated", True)
+        distance_between_tumors = queen_policy.get("distance_between_tumors", 7)
+
+        return {
+            "creep_activated": creep_activated,
+            "distance_between_tumors": distance_between_tumors,
+        }

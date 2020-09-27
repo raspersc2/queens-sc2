@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 import random
 from sc2 import BotAI, Difficulty, Race, maps, run_game
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
@@ -29,8 +29,9 @@ class ZergBot(BotAI):
             await self.distribute_workers()
 
         # call the queen library to handle our queens
-        # auto_queen handles every thing
-        await self.queens.auto_queen()
+        # auto_queen handles everything
+        queen_policy: Dict = {"creep_activated": True}
+        await self.queens.manage_queens(**queen_policy)
 
         # can also just use the parts of the queen library we require:
         # creep_queens: Units= self.units(UnitID.QUEEN).tags_in(self.creep_queen_tags)
