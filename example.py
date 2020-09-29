@@ -21,25 +21,24 @@ class ZergBot(BotAI):
     def need_overlord(self) -> bool:
         return not self.already_pending(UnitID.OVERLORD) and self.supply_left <= 1
 
+    async def on_unit_destroyed(self, unit_tag: int):
+        # checks if unit is a queen, lib then handles appropriately
+        self.queens.remove_queen(unit_tag)
+
     async def on_start(self):
+        # queen_policy: Dict = {"creep_queens": {"active": False, "max": 4}}
+        # self.queens = Queens(self, **queen_policy)
         self.queens = Queens(self)
 
     async def on_step(self, iteration: int) -> None:
-        if iteration % 16 == 0:
-            await self.distribute_workers()
 
         # call the queen library to handle our queens
-        # auto_queen handles everything
-        queen_policy: Dict = {"creep_activated": True}
-        await self.queens.manage_queens(**queen_policy)
+        # can optionally pass in a custom selection of queens, ie:
+        # await self.queens.manage_queens(self.units(UnitID.QUEEN).tags_in(self.queen_tags))
+        await self.queens.manage_queens()
 
-        # can also just use the parts of the queen library we require:
-        # creep_queens: Units= self.units(UnitID.QUEEN).tags_in(self.creep_queen_tags)
-        # await self.queens.spread_creep(creep_queens)
-
-        # similar for the other exposed methods:
-        # await self.queens.inject_bases(inject_queens)
-        # await self.queens.handle_defence(defence_queens)
+        if iteration % 16 == 0:
+            await self.distribute_workers()
 
         # queen production
         if (
@@ -71,10 +70,8 @@ class ZergBot(BotAI):
                 worker.build(UnitID.SPAWNINGPOOL, pos)
 
         # expand
-        if (
-            self.townhalls.amount < 2
-            and not self.already_pending(UnitID.HATCHERY)
-            and self.can_afford(UnitID.HATCHERY)
+        if not self.already_pending(UnitID.HATCHERY) and self.can_afford(
+            UnitID.HATCHERY
         ):
             await self.expand_now(max_distance=0)
 
@@ -92,7 +89,6 @@ class ZergBot(BotAI):
 # Local game
 random_map = random.choice(["EverDreamLE",])
 random_race = random.choice([Race.Zerg, Race.Terran, Race.Protoss])
-print("Starting local game...")
 bot = Bot(Race.Zerg, ZergBot())
 run_game(
     maps.get(random_map),
