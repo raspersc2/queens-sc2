@@ -35,23 +35,30 @@ class Queens:
 
         for queen in queens:
             self._assign_queen_role(queen)
+            if queen.tag in self.inject_targets.keys():
+                await self.inject.handle_queen(queen, self.inject_targets[queen.tag])
         if self.debug:
             await self._draw_debug_info()
 
-    def remove_queen(self, unit_tag) -> None:
-        pass
-
-    async def handle_defence(self, queens: Units) -> None:
-        pass
-
-    async def spread_creep(self, queens: Units) -> None:
-        await self.creep.spread_creep(queens)
-
-    async def spread_existing_tumors(self, tumors: Optional[Units]):
-        await self.creep.spread_existing_tumors(tumors)
-
-    async def inject_bases(self, queens: Units) -> None:
-        pass
+    def remove_unit(self, unit_tag) -> None:
+        self.creep_queen_tags = [
+            tag for tag in self.creep_queen_tags if tag != unit_tag
+        ]
+        self.defence_queen_tags = [
+            tag for tag in self.defence_queen_tags if tag != unit_tag
+        ]
+        try:
+            del self.inject_targets[unit_tag]
+        except KeyError:
+            pass
+        # here we check if townhall was destroyed
+        for k in self.inject_targets.copy():
+            if self.inject_targets[k] == unit_tag:
+                del self.inject_targets[k]
+                # also assign the dead townhall's queen a new role
+                queens: Units = self.bot.units(UnitID.QUEEN).tags_in([k])
+                if queens:
+                    self._assign_queen_role(queens.first)
 
     def set_new_policy(self, reset_roles: bool = True, **queen_policy) -> None:
         self.policies = self._read_queen_policy(**queen_policy)
@@ -79,7 +86,7 @@ class Queens:
         ths_without_queen: Units = ready_townhalls.filter(
             lambda townhall: townhall.tag not in self.inject_targets
         )
-
+        # work out which roles are of priority
         for key, value in self.policies.items():
             if value.active and value.priority:
                 if (
@@ -99,8 +106,8 @@ class Queens:
         if QueenRoles.Inject in priorities and ths_without_queen:
             # pick th closest to queen, so she doesn't have to walk too far
             th: Unit = ths_without_queen.closest_to(queen)
-            if th.tag not in self.inject_targets:
-                self.inject_targets[th.tag] = queen.tag
+            if th.tag not in self.inject_targets.values():
+                self.inject_targets[queen.tag] = th.tag
         elif QueenRoles.Creep in priorities:
             self.creep_queen_tags.append(queen.tag)
         elif QueenRoles.Defence in priorities:
@@ -113,7 +120,7 @@ class Queens:
                 if ths_without_queen:
                     # pick th closest to queen
                     th: Unit = ths_without_queen.closest_to(queen)
-                    self.inject_targets[th.tag] = queen.tag
+                    self.inject_targets[queen.tag] = th.tag
             elif len(self.creep_queen_tags) < self.policies[CREEP_POLICY].max_queens:
                 self.creep_queen_tags.append(queen.tag)
             # leftover queens get assigned to defence
@@ -129,7 +136,7 @@ class Queens:
             for tag in [
                 self.creep_queen_tags,
                 self.defence_queen_tags,
-                self.inject_targets.values(),
+                self.inject_targets.keys(),
             ]
             if queen.tag in tag
         ]
@@ -225,11 +232,11 @@ class Queens:
             for queen in queens:
                 # don't use elif, to check for bugs (queen more than one role)
                 if queen.tag in self.creep_queen_tags:
-                    self._draw_on_world(queen.position, "CREEP")
+                    self._draw_on_world(queen.position, f"CREEP {queen.tag}")
                 if queen.tag in self.defence_queen_tags:
-                    self._draw_on_world(queen.position, "DEFENCE")
-                if queen.tag in self.inject_targets.values():
-                    self._draw_on_world(queen.position, "INJECT")
+                    self._draw_on_world(queen.position, f"DEFENCE {queen.tag}")
+                if queen.tag in self.inject_targets.keys():
+                    self._draw_on_world(queen.position, f"INJECT {queen.tag}")
 
     def _draw_on_world(self, pos: Point2, text: str) -> None:
         z_height: float = self.bot.get_terrain_z_height(pos)

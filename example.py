@@ -38,8 +38,8 @@ class ZergBot(BotAI):
         await self.do_basic_zergbot(iteration)
 
     async def on_unit_destroyed(self, unit_tag: int):
-        # checks if unit is a queen, lib then handles appropriately
-        self.queens.remove_queen(unit_tag)
+        # checks if unit is a queen or th, lib then handles appropriately
+        self.queens.remove_unit(unit_tag)
 
     @property
     def need_overlord(self) -> bool:

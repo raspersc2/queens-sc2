@@ -1,7 +1,9 @@
 from typing import Dict
 from sc2 import BotAI
 
+from sc2_queens.base_unit import BaseUnit
 
-class Defence:
+
+class Defence(BaseUnit):
     def __init__(self, bot: BotAI, defence_policy: Dict):
-        self.bot: BotAI = bot
+        super().__init__(bot)
