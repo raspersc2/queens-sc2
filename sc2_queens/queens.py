@@ -1,8 +1,8 @@
-from typing import Callable, Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 from sc2 import BotAI
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
-from sc2.position import Point2
+from sc2.position import Point2, Point3
 from sc2.unit import Unit
 from sc2.units import Units
 
@@ -18,8 +18,9 @@ INJECT_POLICY: str = "inject_policy"
 
 
 class Queens:
-    def __init__(self, bot: BotAI, **queen_policy: Dict):
+    def __init__(self, bot: BotAI, debug: bool = False, **queen_policy: Dict):
         self.bot: BotAI = bot
+        self.debug: bool = debug
         self.creep_queen_tags: List[int] = []
         self.defence_queen_tags: List[int] = []
         self.inject_targets: Dict[int, int] = {}
@@ -34,6 +35,8 @@ class Queens:
 
         for queen in queens:
             self._assign_queen_role(queen)
+        if self.debug:
+            await self._draw_debug_info()
 
     def remove_queen(self, unit_tag) -> None:
         pass
@@ -68,11 +71,54 @@ class Queens:
         """
         if self._queen_has_role(queen):
             return
-        # if there are priority clashes, default is:
+        # if there are priority clashes, revert to:
         # inject, creep, defence
-        new_role: QueenRoles = QueenRoles.Inject
-        # for key, values in self.queen_policy.items():
-        #     pass
+        # if there is a priority, assign it to the relevant group
+        priorities: List[str] = []
+        ready_townhalls: Units = self.bot.townhalls.ready
+        ths_without_queen: Units = ready_townhalls.filter(
+            lambda townhall: townhall.tag not in self.inject_targets
+        )
+
+        for key, value in self.policies.items():
+            if value.active and value.priority:
+                if (
+                    key == CREEP_POLICY
+                    and len(self.creep_queen_tags) < value.max_queens
+                ):
+                    priorities.append(QueenRoles.Creep)
+                elif (
+                    key == DEFENCE_POLICY
+                    and len(self.defence_queen_tags) < value.max_queens
+                ):
+                    priorities.append(QueenRoles.Defence)
+                elif key == INJECT_POLICY and len(self.inject_targets) < min(
+                    value.max_queens, ready_townhalls.amount
+                ):
+                    priorities.append(QueenRoles.Inject)
+        if QueenRoles.Inject in priorities and ths_without_queen:
+            # pick th closest to queen, so she doesn't have to walk too far
+            th: Unit = ths_without_queen.closest_to(queen)
+            if th.tag not in self.inject_targets:
+                self.inject_targets[th.tag] = queen.tag
+        elif QueenRoles.Creep in priorities:
+            self.creep_queen_tags.append(queen.tag)
+        elif QueenRoles.Defence in priorities:
+            self.defence_queen_tags.append(queen.tag)
+        # if we get to here, then assign to inject, then creep then defence
+        else:
+            if len(self.inject_targets) < min(
+                self.policies[INJECT_POLICY].max_queens, ready_townhalls.amount
+            ):
+                if ths_without_queen:
+                    # pick th closest to queen
+                    th: Unit = ths_without_queen.closest_to(queen)
+                    self.inject_targets[th.tag] = queen.tag
+            elif len(self.creep_queen_tags) < self.policies[CREEP_POLICY].max_queens:
+                self.creep_queen_tags.append(queen.tag)
+            # leftover queens get assigned to defence
+            else:
+                self.defence_queen_tags.append(queen.tag)
 
     def _queen_has_role(self, queen: Unit) -> bool:
         """
@@ -150,3 +196,43 @@ class Queens:
         }
 
         return policies
+
+    async def _draw_debug_info(self) -> None:
+        self.bot.client.debug_text_screen(
+            f"Creep Queens Amount: {str(len(self.creep_queen_tags))}, "
+            f"Policy Amount: {str(self.policies[CREEP_POLICY].max_queens)}",
+            pos=(0.2, 0.6),
+            size=13,
+            color=(0, 255, 255),
+        )
+        self.bot.client.debug_text_screen(
+            f"Defence Queens Amount: {str(len(self.defence_queen_tags))}, "
+            f"Policy Amount (this can go over): {str(self.policies[DEFENCE_POLICY].max_queens)}",
+            pos=(0.2, 0.62),
+            size=13,
+            color=(0, 255, 255),
+        )
+        self.bot.client.debug_text_screen(
+            f"Inject Queens Amount: {str(len(self.inject_targets.keys()))}, "
+            f"Policy Amount: {str(self.policies[INJECT_POLICY].max_queens)}",
+            pos=(0.2, 0.64),
+            size=13,
+            color=(0, 255, 255),
+        )
+
+        queens: Units = self.bot.units(UnitID.QUEEN)
+        if queens:
+            for queen in queens:
+                # don't use elif, to check for bugs (queen more than one role)
+                if queen.tag in self.creep_queen_tags:
+                    self._draw_on_world(queen.position, "CREEP")
+                if queen.tag in self.defence_queen_tags:
+                    self._draw_on_world(queen.position, "DEFENCE")
+                if queen.tag in self.inject_targets.values():
+                    self._draw_on_world(queen.position, "INJECT")
+
+    def _draw_on_world(self, pos: Point2, text: str) -> None:
+        z_height: float = self.bot.get_terrain_z_height(pos)
+        self.bot.client.debug_text_world(
+            text, Point3((pos.x, pos.y, z_height)), color=(0, 255, 255), size=12,
+        )

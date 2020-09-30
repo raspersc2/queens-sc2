@@ -21,11 +21,11 @@ class ZergBot(BotAI):
     async def on_start(self):
         # override defaults in the sc2_queens lib by passing a policy:
         queen_policy: Dict = {
-            "creep_queens": {"active": False, "max": 4},
+            "creep_queens": {"active": True, "max": 2},
             "defence_queens": {"max": 100},
-            "inject_queens": {"max": 2},
+            "inject_queens": {"max": 6},
         }
-        self.queens = Queens(self, **queen_policy)
+        self.queens = Queens(self, debug=True, **queen_policy)
 
     async def on_step(self, iteration: int) -> None:
 
