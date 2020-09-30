@@ -13,30 +13,39 @@ from sc2_queens.queens import Queens
 class ZergBot(BotAI):
     """
     Example ZergBot, expands and then only builds queens
+    Demonstrates the sc2-queens lib in action
     """
 
     queens: Queens
 
-    @property
-    def need_overlord(self) -> bool:
-        return not self.already_pending(UnitID.OVERLORD) and self.supply_left <= 1
-
-    async def on_unit_destroyed(self, unit_tag: int):
-        # checks if unit is a queen, lib then handles appropriately
-        self.queens.remove_queen(unit_tag)
-
     async def on_start(self):
-        # queen_policy: Dict = {"creep_queens": {"active": False, "max": 4}}
-        # self.queens = Queens(self, **queen_policy)
-        self.queens = Queens(self)
+        # override defaults in the sc2_queens lib by passing a policy:
+        queen_policy: Dict = {
+            "creep_queens": {"active": False, "max": 4},
+            "defence_queens": {"max": 100},
+            "inject_queens": {"max": 2},
+        }
+        self.queens = Queens(self, **queen_policy)
 
     async def on_step(self, iteration: int) -> None:
 
         # call the queen library to handle our queens
         # can optionally pass in a custom selection of queens, ie:
-        # await self.queens.manage_queens(self.units(UnitID.QUEEN).tags_in(self.queen_tags))
+        # queens: Units = self.units(UnitID.QUEEN).tags_in(self.sc2_queen_tags)
         await self.queens.manage_queens()
 
+        # basic bot that only builds queens
+        await self.do_basic_zergbot(iteration)
+
+    async def on_unit_destroyed(self, unit_tag: int):
+        # checks if unit is a queen, lib then handles appropriately
+        self.queens.remove_queen(unit_tag)
+
+    @property
+    def need_overlord(self) -> bool:
+        return not self.already_pending(UnitID.OVERLORD) and self.supply_left <= 1
+
+    async def do_basic_zergbot(self, iteration: int) -> None:
         if iteration % 16 == 0:
             await self.distribute_workers()
 

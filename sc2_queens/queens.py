@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Set
 
 from sc2 import BotAI
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
@@ -10,6 +10,11 @@ from sc2_queens.consts import QueenRoles
 from sc2_queens.creep import Creep
 from sc2_queens.defence import Defence
 from sc2_queens.inject import Inject
+from sc2_queens.policy import DefenceQueen, CreepQueen, InjectQueen, Policy
+
+CREEP_POLICY: str = "creep_policy"
+DEFENCE_POLICY: str = "defence_policy"
+INJECT_POLICY: str = "inject_policy"
 
 
 class Queens:
@@ -18,10 +23,10 @@ class Queens:
         self.creep_queen_tags: List[int] = []
         self.defence_queen_tags: List[int] = []
         self.inject_targets: Dict[int, int] = {}
-        self.queen_policy: Dict = self._read_queen_policy(**queen_policy)
-        self.creep: Creep = Creep(bot, self.queen_policy["creep_queens"])
-        self.defence: Defence = Defence(bot, self.queen_policy["defence_queens"])
-        self.inject: Inject = Inject(bot, self.queen_policy["inject_queens"])
+        self.policies: Dict[str, Policy] = self._read_queen_policy(**queen_policy)
+        self.creep: Creep = Creep(bot, self.policies[CREEP_POLICY])
+        self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY])
+        self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY])
 
     async def manage_queens(self, queens: Optional[Units] = None) -> None:
         if queens is None:
@@ -45,6 +50,13 @@ class Queens:
     async def inject_bases(self, queens: Units) -> None:
         pass
 
+    def set_new_policy(self, reset_roles: bool = True, **queen_policy) -> None:
+        self.policies = self._read_queen_policy(**queen_policy)
+        if reset_roles:
+            self.creep_queen_tags = []
+            self.defence_queen_tags = []
+            self.inject_targets = {}
+
     def _assign_queen_role(self, queen: Unit) -> None:
         """
         If queen does not have role, work out from the policy
@@ -59,8 +71,8 @@ class Queens:
         # if there are priority clashes, default is:
         # inject, creep, defence
         new_role: QueenRoles = QueenRoles.Inject
-        for key, values in self.queen_policy.items():
-            pass
+        # for key, values in self.queen_policy.items():
+        #     pass
 
     def _queen_has_role(self, queen: Unit) -> bool:
         """
@@ -77,7 +89,7 @@ class Queens:
         ]
         return len(queen_tag) > 0
 
-    def _read_queen_policy(self, **queen_policy: Dict) -> Dict:
+    def _read_queen_policy(self, **queen_policy: Dict) -> Dict[str, Policy]:
         """
         Read the queen policy the user passed in, add default
         params for missing values
@@ -87,59 +99,54 @@ class Queens:
         :return: new policy with default params for missing values
         :rtype: Dict
         """
+        cq_policy = queen_policy.get("creep_queens", {})
+        dq_policy = queen_policy.get("defence_queens", {})
+        iq_policy = queen_policy.get("inject_queens", {})
+        creep_queen_policy = CreepQueen(
+            active=cq_policy.get("active", True),
+            max_queens=cq_policy.get("max", 2),
+            priority=cq_policy.get("priority", False),
+            defend_against_air=cq_policy.get("defend_against_air", True),
+            defend_against_ground=cq_policy.get("defend_against_ground", False),
+            distance_between_queen_tumors=cq_policy.get(
+                "distance_between_queen_tumors", 2
+            ),
+            distance_between_existing_tumors=cq_policy.get(
+                "distance_between_existing_tumors", 7
+            ),
+            should_tumors_block_expansions=cq_policy.get(
+                "distance_between_existing_tumors", False
+            ),
+            is_active=cq_policy.get(
+                "is_active",
+                lambda: self.bot.structures(UnitID.CREEPTUMORBURROWED).amount < 20,
+            ),
+        )
+        defence_queen_policy = DefenceQueen(
+            active=dq_policy.get("active", True),
+            max_queens=dq_policy.get("max", 6),
+            priority=dq_policy.get("priority", False),
+            defend_against_air=dq_policy.get("defend_against_air", True),
+            defend_against_ground=dq_policy.get("defend_against_ground", True),
+            rally_point=dq_policy.get(
+                "rally_point",
+                self.bot.main_base_ramp.bottom_center.towards(
+                    self.bot.game_info.map_center, 3
+                ),
+            ),
+        )
+        inject_queen_policy = InjectQueen(
+            active=iq_policy.get("active", True),
+            max_queens=iq_policy.get("max", 6),
+            priority=iq_policy.get("priority", True),
+            defend_against_air=iq_policy.get("defend_against_air", False),
+            defend_against_ground=iq_policy.get("defend_against_ground", False),
+        )
 
-        return {
-            "creep_queens": {
-                "active": queen_policy.get("creep_queens", {}).get("active", True),
-                "max": queen_policy.get("creep_queens", {}).get("max", 6),
-                "priority": queen_policy.get("creep_queens", {}).get("priority", False),
-                "defend_against_air": queen_policy.get("creep_queens", {}).get(
-                    "defend_against_air", True
-                ),
-                "defend_against_ground": queen_policy.get("creep_queens", {}).get(
-                    "defend_against_ground", True
-                ),
-                "tumors_block_expansions": queen_policy.get("creep_queens", {}).get(
-                    "tumors_block_expansions", False
-                ),
-                "distance_between_tumors": queen_policy.get("creep_queens", {}).get(
-                    "distance_between_tumors", 7
-                ),
-                "spread_till": queen_policy.get("creep_queens", {}).get(
-                    "spread_till",
-                    lambda: self.bot.structures(UnitID.CREEPTUMORBURROWED).amount > 15,
-                ),
-            },
-            "defence_queens": {
-                "active": queen_policy.get("defence_queens", {}).get("active", True),
-                "max": queen_policy.get("defence_queens", {}).get("max", 3),
-                "priority": queen_policy.get("defence_queens", {}).get(
-                    "priority", False
-                ),
-                "defend_against_air": queen_policy.get("defence_queens", {}).get(
-                    "defend_against_air", True
-                ),
-                "defend_against_ground": queen_policy.get("defence_queens", {}).get(
-                    "defend_against_ground", True
-                ),
-                "rally_point": queen_policy.get("defence_queens", {}).get(
-                    "rally_point",
-                    self.bot.main_base_ramp.bottom_center.towards(
-                        self.bot.game_info.map_center, 3
-                    ),
-                ),
-            },
-            "inject_queens": {
-                "active": queen_policy.get("inject_queens", {}).get("active", True),
-                "max": queen_policy.get("inject_queens", {}).get("max", 6),
-                "priority": queen_policy.get("defence_queens", {}).get(
-                    "priority", True
-                ),
-                "defend_against_air": queen_policy.get("inject_queens", {}).get(
-                    "defend_against_air", False
-                ),
-                "defend_against_ground": queen_policy.get("inject_queens", {}).get(
-                    "defend_against_ground", False
-                ),
-            },
+        policies = {
+            CREEP_POLICY: creep_queen_policy,
+            DEFENCE_POLICY: defence_queen_policy,
+            INJECT_POLICY: inject_queen_policy,
         }
+
+        return policies
