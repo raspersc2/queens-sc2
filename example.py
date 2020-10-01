@@ -21,9 +21,9 @@ class ZergBot(BotAI):
     async def on_start(self):
         # override defaults in the sc2_queens lib by passing a policy:
         queen_policy: Dict = {
-            "creep_queens": {"active": True, "max": 2},
+            "creep_queens": {"active": True, "priority": True, "max": 2},
             "defence_queens": {"max": 100},
-            "inject_queens": {"max": 6},
+            "inject_queens": {"active": True, "priority": False, "max": 1},
         }
         self.queens = Queens(self, debug=True, **queen_policy)
 
@@ -32,7 +32,16 @@ class ZergBot(BotAI):
         # call the queen library to handle our queens
         # can optionally pass in a custom selection of queens, ie:
         # queens: Units = self.units(UnitID.QUEEN).tags_in(self.sc2_queen_tags)
-        await self.queens.manage_queens()
+        await self.queens.manage_queens(iteration)
+        # can repurpose queens by passing a new policy
+        if iteration == 2000:
+            # turn every queen into defence queen
+            queen_policy: Dict = {
+                "creep_queens": {"active": False},
+                "defence_queens": {"active": True},
+                "inject_queens": {"active": False},
+            }
+            self.queens.set_new_policy(reset_roles=True, **queen_policy)
 
         # basic bot that only builds queens
         await self.do_basic_zergbot(iteration)
@@ -43,7 +52,7 @@ class ZergBot(BotAI):
 
     @property
     def need_overlord(self) -> bool:
-        return not self.already_pending(UnitID.OVERLORD) and self.supply_left <= 1
+        return not self.already_pending(UnitID.OVERLORD) and self.supply_left <= 4
 
     async def do_basic_zergbot(self, iteration: int) -> None:
         if iteration % 16 == 0:
@@ -79,9 +88,7 @@ class ZergBot(BotAI):
                 worker.build(UnitID.SPAWNINGPOOL, pos)
 
         # expand
-        if not self.already_pending(UnitID.HATCHERY) and self.can_afford(
-            UnitID.HATCHERY
-        ):
+        if self.can_afford(UnitID.HATCHERY):
             await self.expand_now(max_distance=0)
 
     def select_worker(self, target: Point2) -> Optional[Unit]:
@@ -101,6 +108,7 @@ random_race = random.choice([Race.Zerg, Race.Terran, Race.Protoss])
 bot = Bot(Race.Zerg, ZergBot())
 run_game(
     maps.get(random_map),
-    [bot, Computer(random_race, Difficulty.Easy),],
+    [bot, Computer(Race.Terran, Difficulty.Hard),],
     realtime=False,
+    save_replay_as="ZvTElite.SC2Replay",
 )

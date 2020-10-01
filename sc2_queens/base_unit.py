@@ -1,7 +1,8 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from sc2 import BotAI
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
+from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
@@ -55,6 +56,14 @@ class BaseUnit(ABC):
 
         return ground_threats
 
+    @abstractmethod
+    async def handle_unit(self, unit: Unit) -> None:
+        pass
+
+    @abstractmethod
+    def update_policy(self, policy) -> None:
+        pass
+
     async def do_queen_micro(self, queen: Unit, enemy: Units) -> None:
         if not queen or not enemy:
             return
@@ -75,3 +84,25 @@ class BaseUnit(ABC):
 
         else:
             queen.attack(enemy.closest_to(queen))
+
+    def position_near_enemy(self, pos: Point2) -> bool:
+        close_enemy: Units = self.bot.enemy_units.filter(
+            lambda unit: unit.distance_to(pos) < 15
+        )
+        return True if close_enemy else False
+
+    def position_near_enemy_townhall(self, pos: Point2) -> bool:
+        close_townhalls: Units = self.bot.enemy_structures.filter(
+            lambda unit: unit.type_id
+            in {
+                UnitID.HATCHERY,
+                UnitID.HIVE,
+                UnitID.LAIR,
+                UnitID.NEXUS,
+                UnitID.COMMANDCENTER,
+                UnitID.ORBITALCOMMAND,
+                UnitID.PLANETARYFORTRESS,
+            }
+            and unit.distance_to(pos) < 20
+        )
+        return True if close_townhalls else False

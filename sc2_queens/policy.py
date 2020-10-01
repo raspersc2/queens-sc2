@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, List
 
 from abc import ABC
 from sc2.position import Point2
@@ -21,8 +21,16 @@ class Policy(ABC):
 
 
 class DefenceQueen(Policy):
-    def __init__(self, rally_point: Point2, **kwargs):
+    def __init__(
+        self,
+        attack_condition: Callable,
+        attack_target: Point2,
+        rally_point: Point2,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
+        self.attack_condition = attack_condition
+        self.attack_target = attack_target
         self.rally_point = rally_point
 
 
@@ -33,6 +41,9 @@ class CreepQueen(Policy):
         distance_between_existing_tumors: int,
         should_tumors_block_expansions: bool,
         is_active: Callable,
+        creep_targets: List[Point2],
+        spread_style: str,
+        rally_point: Point2,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -40,6 +51,9 @@ class CreepQueen(Policy):
         self.distance_between_existing_tumors = distance_between_existing_tumors
         self.should_tumors_block_expansions = should_tumors_block_expansions
         self.is_active = is_active
+        self.creep_targets = creep_targets
+        self.spread_style = spread_style
+        self.rally_point = rally_point
 
 
 class InjectQueen(Policy):

@@ -29,14 +29,23 @@ class Queens:
         self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY])
         self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY])
 
-    async def manage_queens(self, queens: Optional[Units] = None) -> None:
+    async def manage_queens(
+        self, iteration: int, queens: Optional[Units] = None
+    ) -> None:
         if queens is None:
             queens: Units = self.bot.units(UnitID.QUEEN)
+
+        if iteration % 4 == 0:
+            await self.creep.spread_existing_tumors()
 
         for queen in queens:
             self._assign_queen_role(queen)
             if queen.tag in self.inject_targets.keys():
-                await self.inject.handle_queen(queen, self.inject_targets[queen.tag])
+                await self.inject.handle_unit(queen, self.inject_targets[queen.tag])
+            elif queen.tag in self.creep_queen_tags:
+                await self.creep.handle_unit(queen)
+            elif queen.tag in self.defence_queen_tags:
+                await self.defence.handle_unit(queen)
         if self.debug:
             await self._draw_debug_info()
 
@@ -65,7 +74,11 @@ class Queens:
         if reset_roles:
             self.creep_queen_tags = []
             self.defence_queen_tags = []
-            self.inject_targets = {}
+            self.inject_targets.clear()
+
+        self.creep.update_policy(self.policies[CREEP_POLICY])
+        self.defence.update_policy(self.policies[DEFENCE_POLICY])
+        self.inject.update_policy(self.policies[INJECT_POLICY])
 
     def _assign_queen_role(self, queen: Unit) -> None:
         """
@@ -84,7 +97,7 @@ class Queens:
         priorities: List[str] = []
         ready_townhalls: Units = self.bot.townhalls.ready
         ths_without_queen: Units = ready_townhalls.filter(
-            lambda townhall: townhall.tag not in self.inject_targets
+            lambda townhall: townhall.tag not in self.inject_targets.values()
         )
         # work out which roles are of priority
         for key, value in self.policies.items():
@@ -114,16 +127,21 @@ class Queens:
             self.defence_queen_tags.append(queen.tag)
         # if we get to here, then assign to inject, then creep then defence
         else:
-            if len(self.inject_targets) < min(
-                self.policies[INJECT_POLICY].max_queens, ready_townhalls.amount
+            if (
+                len(self.inject_targets)
+                < min(self.policies[INJECT_POLICY].max_queens, ready_townhalls.amount)
+                and self.policies[INJECT_POLICY].active
             ):
                 if ths_without_queen:
                     # pick th closest to queen
                     th: Unit = ths_without_queen.closest_to(queen)
                     self.inject_targets[queen.tag] = th.tag
-            elif len(self.creep_queen_tags) < self.policies[CREEP_POLICY].max_queens:
+            elif (
+                len(self.creep_queen_tags) < self.policies[CREEP_POLICY].max_queens
+                and self.policies[CREEP_POLICY].active
+            ):
                 self.creep_queen_tags.append(queen.tag)
-            # leftover queens get assigned to defence
+            # leftover queens get assigned to defence regardless
             else:
                 self.defence_queen_tags.append(queen.tag)
 
@@ -165,14 +183,24 @@ class Queens:
                 "distance_between_queen_tumors", 2
             ),
             distance_between_existing_tumors=cq_policy.get(
-                "distance_between_existing_tumors", 7
+                "distance_between_existing_tumors", 4
             ),
             should_tumors_block_expansions=cq_policy.get(
-                "distance_between_existing_tumors", False
+                "should_tumors_block_expansions", False
             ),
             is_active=cq_policy.get(
                 "is_active",
                 lambda: self.bot.structures(UnitID.CREEPTUMORBURROWED).amount < 20,
+            ),
+            creep_targets=cq_policy.get(
+                "creep_targets", self._path_expansion_distances(),
+            ),
+            spread_style=cq_policy.get("spread_style", "random",),
+            rally_point=cq_policy.get(
+                "rally_point",
+                self.bot.main_base_ramp.bottom_center.towards(
+                    self.bot.game_info.map_center, 3
+                ),
             ),
         )
         defence_queen_policy = DefenceQueen(
@@ -181,6 +209,12 @@ class Queens:
             priority=dq_policy.get("priority", False),
             defend_against_air=dq_policy.get("defend_against_air", True),
             defend_against_ground=dq_policy.get("defend_against_ground", True),
+            attack_condition=dq_policy.get(
+                "attack_condition", lambda: self.bot.units(UnitID.QUEEN).amount > 50
+            ),
+            attack_target=dq_policy.get(
+                "attack_target", self.bot.enemy_start_locations[0]
+            ),
             rally_point=dq_policy.get(
                 "rally_point",
                 self.bot.main_base_ramp.bottom_center.towards(
@@ -203,6 +237,22 @@ class Queens:
         }
 
         return policies
+
+    def _path_expansion_distances(self) -> List[Point2]:
+        """
+        If user passes no creep targets in policy, we use expansion locations
+        """
+        expansion_distances = []
+        spawn_loc = self.bot.start_location
+        for el in self.bot.expansion_locations_list:
+            if (
+                Point2(spawn_loc).position.distance_to(el)
+                < self.bot.EXPANSION_GAP_THRESHOLD
+            ):
+                continue
+
+            expansion_distances.append(el)
+        return expansion_distances
 
     async def _draw_debug_info(self) -> None:
         self.bot.client.debug_text_screen(
