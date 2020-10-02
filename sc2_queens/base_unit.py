@@ -83,11 +83,27 @@ class BaseUnit(ABC):
                 queen.move(closest_enemy.position.towards(queen, distance + 1))
 
         else:
-            queen.attack(enemy.closest_to(queen))
+            # a move
+            queen.attack(enemy.center)
 
     def position_near_enemy(self, pos: Point2) -> bool:
         close_enemy: Units = self.bot.enemy_units.filter(
-            lambda unit: unit.distance_to(pos) < 15
+            lambda unit: unit.distance_to(pos) < 12
+            and unit.type_id
+            not in {
+                UnitID.DRONE,
+                UnitID.SCV,
+                UnitID.PROBE,
+                UnitID.CHANGELING,
+                UnitID.CHANGELINGMARINE,
+                UnitID.CHANGELINGZERGLING,
+                UnitID.CHANGELINGZERGLINGWINGS,
+                UnitID.CHANGELINGZEALOT,
+                UnitID.CHANGELINGMARINESHIELD,
+                UnitID.OVERLORD,
+                UnitID.OVERSEER,
+                UnitID.OBSERVER,
+            }
         )
         return True if close_enemy else False
 

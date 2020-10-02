@@ -1,4 +1,7 @@
+from typing import Optional
+
 from sc2 import BotAI
+from sc2.position import Point2
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.unit import Unit
@@ -14,9 +17,8 @@ class Defence(BaseUnit):
         self.last_transfusion: float = 0.0
         self.policy: DefenceQueen = defence_policy
 
-    @property
-    def transfuse_targets(self) -> Units:
-        return self.bot.units.filter(
+    def get_transfuse_target(self, from_pos: Point2) -> Optional[Unit]:
+        transfuse_targets: Units = self.bot.units.filter(
             lambda unit: unit.health_percentage < 0.4
             and unit.type_id
             in {
@@ -31,16 +33,19 @@ class Defence(BaseUnit):
                 UnitID.SWARMHOSTMP,
                 UnitID.ULTRALISK,
             }
-        )
+        ) + self.bot.structures({UnitID.SPINECRAWLER, UnitID.SPORECRAWLER})
+
+        if transfuse_targets and transfuse_targets.closer_than(10, from_pos):
+            return transfuse_targets.closest_to(from_pos)
 
     async def handle_unit(self, unit: Unit) -> None:
-        transfuse_targets: Units = self.transfuse_targets
+        transfuse_target: Unit = self.get_transfuse_target(unit.position)
         if (
-            transfuse_targets
-            and transfuse_targets.closer_than(10, unit)
-            and self.last_transfusion + 0.25 < self.bot.time
+            transfuse_target
+            and transfuse_target is not unit
+            # and self.last_transfusion + 0.02 < self.bot.time
         ):
-            unit(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_targets.closest_to(unit))
+            unit(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
             self.last_transfusion = self.bot.time
         elif self.policy.defend_against_ground and self.enemy_ground_threats:
             await self.do_queen_micro(unit, self.enemy_ground_threats)

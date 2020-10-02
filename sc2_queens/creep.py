@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 import numpy as np
 
 from sc2 import BotAI
@@ -71,21 +71,25 @@ class Creep(BaseUnit):
         all_tumors: Units = self.bot.structures(
             {UnitID.CREEPTUMOR, UnitID.CREEPTUMORBURROWED}
         )
-        tumors: Units = self.bot.structures(UnitID.CREEPTUMORBURROWED)
+        tumors: Units = self.bot.structures(UnitID.CREEPTUMORBURROWED).ready
         should_lay_tumor: bool = True
         for tumor in tumors:
-            if self.policy.spread_style.upper() == "TARGETS":
-                pass
+            if self.policy.spread_style.upper() == "TARGETED":
+                pos: Point2 = self._find_existing_tumor_placement(
+                    tumor.position, self.policy.distance_between_existing_tumors
+                )
+                if pos:
+                    tumor(AbilityId.BUILD_CREEPTUMOR_TUMOR, pos)
             else:
                 pos: Point2 = _find_random_creep_placement(
                     tumor.position, self.policy.distance_between_existing_tumors
                 )
                 if (
-                    (
-                        not self.policy.should_tumors_block_expansions
-                        and self._position_blocks_expansion(pos)
-                    )
-                    or self.position_near_enemy(pos)
+                    # (
+                    #     not self.policy.should_tumors_block_expansions
+                    #     and self._position_blocks_expansion(pos)
+                    # )
+                    self.position_near_enemy(pos)
                     or all_tumors.closer_than(
                         self.policy.distance_between_existing_tumors, pos
                     )
@@ -103,6 +107,17 @@ class Creep(BaseUnit):
 
         pos = Point2(Pointlike((nearest_spot[0], nearest_spot[1])))
         return pos
+
+    def _find_existing_tumor_placement(
+        self, from_pos: Point2, distance: int
+    ) -> Optional[Point2]:
+        import random
+
+        target: Point2 = random.choice(self.creep_targets)
+        possible_placement_area: Point2 = from_pos.towards(target, distance)
+        for pos in possible_placement_area.neighbors8:
+            if self.bot.is_visible(pos) and self.bot.has_creep(pos):
+                return pos
 
     def _position_blocks_expansion(self, position: Point2) -> bool:
         """ Will the creep tumor block expansion """

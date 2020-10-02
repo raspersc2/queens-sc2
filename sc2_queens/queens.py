@@ -35,7 +35,7 @@ class Queens:
         if queens is None:
             queens: Units = self.bot.units(UnitID.QUEEN)
 
-        if iteration % 4 == 0:
+        if iteration % 16 == 0:
             await self.creep.spread_existing_tumors()
 
         for queen in queens:
@@ -183,7 +183,7 @@ class Queens:
                 "distance_between_queen_tumors", 2
             ),
             distance_between_existing_tumors=cq_policy.get(
-                "distance_between_existing_tumors", 4
+                "distance_between_existing_tumors", 7
             ),
             should_tumors_block_expansions=cq_policy.get(
                 "should_tumors_block_expansions", False
@@ -195,7 +195,7 @@ class Queens:
             creep_targets=cq_policy.get(
                 "creep_targets", self._path_expansion_distances(),
             ),
-            spread_style=cq_policy.get("spread_style", "random",),
+            spread_style=cq_policy.get("spread_style", "targeted"),
             rally_point=cq_policy.get(
                 "rally_point",
                 self.bot.main_base_ramp.bottom_center.towards(
@@ -209,9 +209,7 @@ class Queens:
             priority=dq_policy.get("priority", False),
             defend_against_air=dq_policy.get("defend_against_air", True),
             defend_against_ground=dq_policy.get("defend_against_ground", True),
-            attack_condition=dq_policy.get(
-                "attack_condition", lambda: self.bot.units(UnitID.QUEEN).amount > 50
-            ),
+            attack_condition=dq_policy.get("attack_condition", lambda: False),
             attack_target=dq_policy.get(
                 "attack_target", self.bot.enemy_start_locations[0]
             ),
