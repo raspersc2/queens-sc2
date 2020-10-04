@@ -1,4 +1,5 @@
 from typing import Dict, List, Optional
+import numpy as np
 
 from sc2 import BotAI
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
@@ -183,19 +184,15 @@ class Queens:
                 "distance_between_queen_tumors", 2
             ),
             distance_between_existing_tumors=cq_policy.get(
-                "distance_between_existing_tumors", 7
+                "distance_between_existing_tumors", 10
             ),
             should_tumors_block_expansions=cq_policy.get(
                 "should_tumors_block_expansions", False
             ),
-            is_active=cq_policy.get(
-                "is_active",
-                lambda: self.bot.structures(UnitID.CREEPTUMORBURROWED).amount < 20,
-            ),
             creep_targets=cq_policy.get(
                 "creep_targets", self._path_expansion_distances(),
             ),
-            spread_style=cq_policy.get("spread_style", "targeted"),
+            spread_style=cq_policy.get("spread_style", "targeted"),  # targeted
             rally_point=cq_policy.get(
                 "rally_point",
                 self.bot.main_base_ramp.bottom_center.towards(

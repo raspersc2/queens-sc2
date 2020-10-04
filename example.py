@@ -1,5 +1,5 @@
 import random
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from sc2 import BotAI, Difficulty, Race, maps, run_game
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
@@ -17,42 +17,74 @@ class ZergBot(BotAI):
     Demonstrates the sc2-queens lib in action
     """
 
+    natural_pos: Point2
     queens: Queens
 
-    async def on_start(self):
-        # override defaults in the sc2_queens lib by passing a policy:
-        queen_policy: Dict = {
+    def __init__(self) -> None:
+        super().__init__()
+        self.basic_bo: List[UnitID] = [
+            UnitID.OVERLORD,
+            UnitID.DRONE,
+            UnitID.DRONE,
+            UnitID.HATCHERY,
+            UnitID.DRONE,
+            UnitID.DRONE,
+            UnitID.SPAWNINGPOOL,
+            UnitID.DRONE,
+            UnitID.DRONE,
+            UnitID.DRONE,
+            UnitID.OVERLORD,
+        ]
+        self.bo_step: int = 0
+        self.natural_drone_tag: int = 0
+        self.switched_queen_policy: bool = False
+
+        self.early_game_queen_policy: Dict = {
             "creep_queens": {"active": True, "priority": True, "max": 4},
-            "inject_queens": {"active": True, "priority": False, "max": 1},
+            "inject_queens": {"active": True, "priority": False, "max": 2},
         }
-        self.queens = Queens(self, debug=True, **queen_policy)
-        self.client.game_step = 8
+
+        self.mid_game_queen_policy: Dict = {
+            "creep_queens": {
+                "active": True,
+                "max": 2,
+                "distance_between_existing_tumors": 5,
+            },
+            "defence_queens": {
+                "active": True,
+                "attack_condition": lambda: self.units(UnitID.QUEEN).amount > 20,
+            },
+            "inject_queens": {"active": False, "max": 0},
+        }
+
+    async def on_before_start(self) -> None:
+        self.larva.first.train(UnitID.DRONE)
+        for drone in self.workers:
+            closest_patch: Unit = self.mineral_field.closest_to(drone)
+            drone.gather(closest_patch)
+
+    async def on_start(self) -> None:
+        self.natural_pos = await self._find_natural()
+        # override defaults in the sc2_queens lib by passing a policy:
+        self.queens = Queens(self, debug=True, **self.early_game_queen_policy)
+        self.client.game_step = 6
+
+    async def on_unit_destroyed(self, unit_tag: int):
+        # checks if unit is a queen or th, lib then handles appropriately
+        self.queens.remove_unit(unit_tag)
 
     async def on_step(self, iteration: int) -> None:
-
         # call the queen library to handle our queens
         # can optionally pass in a custom selection of queens, ie:
         # queens: Units = self.units(UnitID.QUEEN).tags_in(self.sc2_queen_tags)
         await self.queens.manage_queens(iteration)
         # can repurpose queens by passing a new policy
-        if iteration == 3000:
-            # turn every queen into defence queen
-            queen_policy: Dict = {
-                "creep_queens": {"active": True, "max": 1},
-                "defence_queens": {
-                    "active": True,
-                    "attack_condition": lambda: self.units(UnitID.QUEEN).amount > 50,
-                },
-                "inject_queens": {"active": False, "max": 0},
-            }
-            self.queens.set_new_policy(reset_roles=True, **queen_policy)
+        if not self.switched_queen_policy and self.time > 450:
+            # adjust queen policy, allow stuck tumors to escape
+            self.queens.set_new_policy(reset_roles=True, **self.mid_game_queen_policy)
 
         # basic bot that only builds queens
         await self.do_basic_zergbot(iteration)
-
-    async def on_unit_destroyed(self, unit_tag: int):
-        # checks if unit is a queen or th, lib then handles appropriately
-        self.queens.remove_unit(unit_tag)
 
     @property
     def need_overlord(self) -> bool:
@@ -62,56 +94,123 @@ class ZergBot(BotAI):
         if iteration % 16 == 0:
             await self.distribute_workers()
 
-        # queen production
+        if self.bo_step < len(self.basic_bo):
+            await self.do_build_order()
+        else:
+            # queen production
+            if (
+                self.structures(UnitID.SPAWNINGPOOL).ready
+                and self.can_afford(UnitID.QUEEN)
+                and self.townhalls.idle
+            ):
+                self.townhalls.idle.first.train(UnitID.QUEEN)
+
+            # drones and overlords from larva
+            if self.larva:
+                num_workers: int = self.workers.amount + self.already_pending(
+                    UnitID.DRONE
+                )
+                # overlords
+                if self.need_overlord and self.can_afford(UnitID.OVERLORD):
+                    self.larva.first.train(UnitID.OVERLORD)
+                # build workers
+                if num_workers <= 60 and self.can_afford(UnitID.DRONE):
+                    self.larva.first.train(UnitID.DRONE)
+
+            # ensure there is a spawning pool
+            if not (
+                self.structures(UnitID.SPAWNINGPOOL)
+                or self.already_pending(UnitID.SPAWNINGPOOL)
+            ) and self.can_afford(UnitID.SPAWNINGPOOL):
+                await self._build_pool()
+
+            # expand
+            if (
+                self.can_afford(UnitID.HATCHERY)
+                and not self.already_pending(UnitID.HATCHERY)
+                and self.time > 160
+            ):
+                await self.expand_now(max_distance=0)
+
+            # spines/spores if minerals too high
+            if self.minerals > 400 and self.structures(UnitID.SPAWNINGPOOL).ready:
+                structure: UnitID = random.choices(
+                    [UnitID.SPINECRAWLER, UnitID.SPORECRAWLER], weights=[0.7, 0.3], k=1
+                )[0]
+                # we are dumb, pick random pos on map
+                x = random.choice(
+                    range(0, self.game_info.placement_grid.data_numpy.shape[1])
+                )
+                y = random.choice(
+                    range(0, self.game_info.placement_grid.data_numpy.shape[0])
+                )
+                # let sc2 library do the magic of finding a placement from random pos
+                pos: Point2 = await self.find_placement(structure, Point2((x, y)))
+                if pos and not self.queens.creep.position_blocks_expansion(pos):
+                    worker: Unit = self._select_worker(pos)
+                    worker.build(structure, pos)
+
+    async def do_build_order(self) -> None:
+        current_step: UnitID = self.basic_bo[self.bo_step]
         if (
-            self.structures(UnitID.SPAWNINGPOOL).ready
-            and self.can_afford(UnitID.QUEEN)
-            and self.townhalls.idle
+            current_step in (UnitID.DRONE, UnitID.OVERLORD)
+            and self.larva
+            and self.can_afford(current_step)
         ):
-            self.townhalls.idle.first.train(UnitID.QUEEN)
+            self.larva.first.train(current_step)
+            self.bo_step += 1
+        elif current_step == UnitID.HATCHERY and self.minerals > 185 and self.workers:
+            if self.natural_drone_tag == 0:
+                worker: Unit = self._select_worker(self.natural_pos)
+                if worker:
+                    self.natural_drone_tag = worker.tag
+                    worker.move(self.natural_pos)
+            elif self.can_afford(UnitID.HATCHERY):
+                workers: Units = self.workers.tags_in([self.natural_drone_tag])
+                if workers:
+                    workers.first.build(UnitID.HATCHERY, self.natural_pos)
+                    self.bo_step += 1
+                # worker is missing, fall back option
+                else:
+                    await self.expand_now(max_distance=0)
+                    self.bo_step += 1
 
-        # drones and overlords from larva
-        if self.larva:
-            # overlords
-            if self.need_overlord and self.can_afford(UnitID.OVERLORD):
-                self.larva.first.train(UnitID.OVERLORD)
-            # build workers
-            if self.supply_workers <= 40 and self.can_afford(UnitID.DRONE):
-                self.larva.first.train(UnitID.DRONE)
-
-        # spawning pool
-        if not (
-            self.structures(UnitID.SPAWNINGPOOL)
-            or self.already_pending(UnitID.SPAWNINGPOOL)
-        ) and self.can_afford(UnitID.SPAWNINGPOOL):
-            pos: Point2 = await self.find_placement(
-                UnitID.SPAWNINGPOOL, self.main_base_ramp.top_center
-            )
-            worker: Unit = self.select_worker(pos)
-            if worker:
-                worker.build(UnitID.SPAWNINGPOOL, pos)
-
-        # expand
-        if self.can_afford(UnitID.HATCHERY) and not self.already_pending(
-            UnitID.HATCHERY
+        elif (
+            current_step == UnitID.SPAWNINGPOOL
+            and self.can_afford(UnitID.SPAWNINGPOOL)
+            and self.workers
         ):
-            await self.expand_now(max_distance=0)
+            await self._build_pool()
+            self.bo_step += 1
+        elif current_step == UnitID.QUEEN and self.can_afford(current_step):
+            self.townhalls.first.train(current_step)
+            self.bo_step += 1
 
-        # spines/spores if minerals too high
-        if self.minerals > 400 and self.structures(UnitID.SPAWNINGPOOL).ready:
-            structure: UnitID = random.choice(
-                [UnitID.SPINECRAWLER, UnitID.SPORECRAWLER]
-            )
-            # we are dumb, pick random pos on map
-            x = random.choice(range(0, self.game_info.map_size.width))
-            y = random.choice(range(0, self.game_info.map_size.height))
-            # let sc2 library do the magic of finding a placement from random pos
-            pos: Point2 = await self.find_placement(structure, Point2((x, y)))
-            if pos and not self.queens.creep._position_blocks_expansion(pos):
-                worker: Unit = self.select_worker(pos)
-                worker.build(structure, pos)
+    async def _build_pool(self) -> None:
+        pos: Point2 = await self.find_placement(
+            UnitID.SPAWNINGPOOL,
+            self.start_location.towards(self.main_base_ramp.top_center, 3),
+        )
+        worker: Unit = self._select_worker(pos)
+        if worker:
+            worker.build(UnitID.SPAWNINGPOOL, pos)
 
-    def select_worker(self, target: Point2) -> Optional[Unit]:
+    async def _find_natural(self) -> Point2:
+        min_distance: float = 9999
+        pos: Point2 = None
+        for el in self.expansion_locations_list:
+            if self.start_location.distance_to(el) < self.EXPANSION_GAP_THRESHOLD:
+                continue
+
+            distance = await self.client.query_pathing(self.start_location, el)
+            if distance:
+                if distance < min_distance:
+                    min_distance = distance
+                    pos = el
+
+        return pos
+
+    def _select_worker(self, target: Point2) -> Optional[Unit]:
         workers: Units = self.workers.filter(
             lambda unit: not unit.is_carrying_minerals and unit.is_collecting
         )
@@ -122,13 +221,14 @@ class ZergBot(BotAI):
         )
 
 
-# Local game
-random_map = random.choice(["EverDreamLE"])
-random_race = random.choice([Race.Zerg, Race.Terran, Race.Protoss])
-bot = Bot(Race.Zerg, ZergBot())
-run_game(
-    maps.get(random_map),
-    [bot, Computer(Race.Terran, Difficulty.Hard)],
-    realtime=False,
-    save_replay_as="ZvTElite.SC2Replay",
-)
+if __name__ == "__main__":
+    # Local game
+    random_map = random.choice(["IceandChromeLE"])
+    random_race = random.choice([Race.Zerg, Race.Terran, Race.Protoss])
+    bot = Bot(Race.Zerg, ZergBot())
+    run_game(
+        maps.get(random_map),
+        [bot, Computer(Race.Terran, Difficulty.Hard)],
+        realtime=False,
+        # save_replay_as="ZvTElite.SC2Replay",
+    )

@@ -33,10 +33,14 @@ class Defence(BaseUnit):
                 UnitID.SWARMHOSTMP,
                 UnitID.ULTRALISK,
             }
-        ) + self.bot.structures({UnitID.SPINECRAWLER, UnitID.SPORECRAWLER})
+            and unit.distance_to(from_pos) < 11
+        ) + self.bot.structures.filter(
+            lambda s: s.health_percentage < 0.4
+            and s.type_id in {UnitID.SPINECRAWLER, UnitID.SPORECRAWLER}
+            and s.distance_to(from_pos) < 11
+        )
 
-        if transfuse_targets and transfuse_targets.closer_than(10, from_pos):
-            return transfuse_targets.closest_to(from_pos)
+        return transfuse_targets.closest_to(from_pos) if transfuse_targets else None
 
     async def handle_unit(self, unit: Unit) -> None:
         transfuse_target: Unit = self.get_transfuse_target(unit.position)
@@ -53,8 +57,11 @@ class Defence(BaseUnit):
             await self.do_queen_micro(unit, self.enemy_air_threats)
         elif self.policy.attack_condition():
             unit.attack(self.policy.attack_target)
-        elif unit.distance_to(self.policy.rally_point) > 7 and len(unit.orders) == 0:
+        elif (
+            unit.distance_to(self.policy.rally_point) > 7
+            or not self.policy.attack_condition()
+        ):
             unit.move(self.policy.rally_point)
 
-    def update_policy(self, policy) -> None:
+    def update_policy(self, policy: DefenceQueen) -> None:
         self.policy = policy

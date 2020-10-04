@@ -40,7 +40,6 @@ class CreepQueen(Policy):
         distance_between_queen_tumors: int,
         distance_between_existing_tumors: int,
         should_tumors_block_expansions: bool,
-        is_active: Callable,
         creep_targets: List[Point2],
         spread_style: str,
         rally_point: Point2,
@@ -50,7 +49,6 @@ class CreepQueen(Policy):
         self.distance_between_queen_tumors = distance_between_queen_tumors
         self.distance_between_existing_tumors = distance_between_existing_tumors
         self.should_tumors_block_expansions = should_tumors_block_expansions
-        self.is_active = is_active
         self.creep_targets = creep_targets
         self.spread_style = spread_style
         self.rally_point = rally_point

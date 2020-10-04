@@ -67,7 +67,7 @@ class BaseUnit(ABC):
     async def do_queen_micro(self, queen: Unit, enemy: Units) -> None:
         if not queen or not enemy:
             return
-        in_range_enemies: Units = enemy.in_attack_range_of(queen, bonus_distance=1)
+        in_range_enemies: Units = enemy.in_attack_range_of(queen)
         if in_range_enemies:
             if queen.weapon_cooldown == 0:
                 lowest_hp: Unit = min(
@@ -80,10 +80,9 @@ class BaseUnit(ABC):
                     queen.ground_range + queen.radius + closest_enemy.radius
                 )
 
-                queen.move(closest_enemy.position.towards(queen, distance + 1))
+                queen.move(closest_enemy.position.towards(queen, distance))
 
         else:
-            # a move
             queen.attack(enemy.center)
 
     def position_near_enemy(self, pos: Point2) -> bool:
