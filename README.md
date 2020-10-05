@@ -16,7 +16,7 @@ MyBot
 
 ## Example bot file
 Out of the box, the library will run without a policy but remember you have to build the queens yourself:
-```
+```python
 from sc2 import BotAI
 from queens_sc2.queens import Queens
 
@@ -41,7 +41,7 @@ class ZergBot(BotAI):
 
 ## Queen policy
 To get the most out of this library, a custom queen policy can be passed to the library with the following options:
-```
+```python
 queen_policy: Dict = {
   "creep_queens": {
       "active": bool,
@@ -75,7 +75,7 @@ queen_policy: Dict = {
 ```
 
 However the library has sane defaults for missing values, this is a valid policy for example:
-```
+```python
 async def on_start(self) -> None:
   early_game_queen_policy: Dict = {
     "creep_queens": {
@@ -91,7 +91,7 @@ async def on_start(self) -> None:
 ```
 
 You can pass new policies on the fly with the `set_new_policy` method:
-```
+```python
 mid_game_queen_policy: Dict = {
     "creep_queens": {
         "max": 2,
