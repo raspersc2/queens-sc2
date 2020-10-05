@@ -28,11 +28,13 @@ class ZergBot(BotAI):
         
     async def on_step(self, iteration: int) -> None:
         # call the queen library to handle our queens
+        await self.queens.manage_queens(iteration)
+        
         # can optionally pass in a custom selection of queens, ie:
-        # queens: Units = self.units(UnitID.QUEEN).tags_in(self.sc2_queen_tags)
+        # queens: Units = self.units.tags_in(self.sc2_queen_tags)
         # await self.queens.manage_queens(iteration, queens)
         # if not the library will manage all queens automatically
-        await self.queens.manage_queens(iteration)
+        
         
         # the rest of my awesome bot ...
 ```
