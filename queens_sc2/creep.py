@@ -25,14 +25,28 @@ class Creep(BaseUnit):
         self.pathing_tiles: np.ndarray = np.vstack(
             (pathable[1], pathable[0])
         ).transpose()
+        self.used_tumors: List[int] = []
+
+    @property
+    def creep_coverage(self) -> float:
+        if self.creep_map is not None:
+            creep_coverage: int = self.creep_map.shape[0]
+            no_creep_coverage: int = self.no_creep_map.shape[0]
+            total_tiles: int = creep_coverage + no_creep_coverage
+            return 100 * creep_coverage / total_tiles
+
+        return 0.0
 
     async def handle_unit(self, unit: Unit) -> None:
+        tumors: Units = self.bot.structures.filter(
+            lambda s: s.type_id == UnitID.CREEPTUMORBURROWED and s.is_ready
+        )
         self.creep_targets = self.policy.creep_targets
         if self.policy.defend_against_air and self.enemy_air_threats:
             await self.do_queen_micro(unit, self.enemy_air_threats)
         elif self.policy.defend_against_ground and self.enemy_ground_threats:
             await self.do_queen_micro(unit, self.enemy_ground_threats)
-        elif unit.energy >= 25 and len(unit.orders) == 0:
+        elif unit.energy >= 25 and len(unit.orders) == 0 and self.creep_coverage < self.policy.target_perc_coverage:
             await self.spread_creep(unit)
         elif unit.distance_to(self.policy.rally_point) > 7 and len(unit.orders) == 0:
             unit.move(self.policy.rally_point)
@@ -43,7 +57,7 @@ class Creep(BaseUnit):
     async def spread_creep(self, queen: Unit) -> None:
         if self.creep_target_index >= len(self.creep_targets):
             self.creep_target_index = 0
-        self._update_creep_map()
+
         should_lay_tumor: bool = True
         pos: Point2 = self._find_closest_to_target(
             self.creep_targets[self.creep_target_index], self.creep_map
@@ -66,28 +80,32 @@ class Creep(BaseUnit):
 
     async def spread_existing_tumors(self):
         tumors: Units = self.bot.structures.filter(
-            lambda s: s.type_id == UnitID.CREEPTUMORBURROWED and s.is_ready
+            lambda s: s.type_id == UnitID.CREEPTUMORBURROWED and s.tag not in self.used_tumors
         )
+        if tumors:
+            all_tumors_abilities = await self.bot.get_available_abilities(tumors)
+            for i, abilities in enumerate(all_tumors_abilities):
+                tumor = tumors[i]
+                if not tumor.is_idle and isinstance(tumor.order_target, Point2):
+                    self.used_tumors.append(tumor.tag)
+                    continue
 
-        for tumor in tumors:
-            should_lay_tumor: bool = True
-            abilities = await self.bot.get_available_abilities(tumor)
-            if AbilityId.BUILD_CREEPTUMOR_TUMOR not in abilities:
-                continue
-            if self.policy.spread_style.upper() == TARGETED_CREEP_SPREAD:
-                pos: Point2 = self._find_existing_tumor_placement(tumor.position)
-            else:
-                pos: Point2 = self._find_random_creep_placement(
-                    tumor.position, self.policy.distance_between_existing_tumors
-                )
-            if pos:
-                if (
-                    not self.policy.should_tumors_block_expansions
-                    and self.position_blocks_expansion(pos)
-                ) or self.position_near_enemy(pos):
-                    should_lay_tumor = False
-                if should_lay_tumor:
-                    tumor(AbilityId.BUILD_CREEPTUMOR_TUMOR, pos)
+                if AbilityId.BUILD_CREEPTUMOR_TUMOR in abilities:
+                    should_lay_tumor: bool = True
+                    if self.policy.spread_style.upper() == TARGETED_CREEP_SPREAD:
+                        pos: Point2 = self._find_existing_tumor_placement(tumor.position)
+                    else:
+                        pos: Point2 = self._find_random_creep_placement(
+                            tumor.position, self.policy.distance_between_existing_tumors
+                        )
+                    if pos:
+                        if (
+                                not self.policy.should_tumors_block_expansions
+                                and self.position_blocks_expansion(pos)
+                        ) or self.position_near_enemy(pos):
+                            should_lay_tumor = False
+                        if should_lay_tumor:
+                            tumor(AbilityId.BUILD_CREEPTUMOR_TUMOR, pos)
 
     def _find_creep_placement(self, target: Point2) -> Point2:
         nearest_spot = self.creep_map[
@@ -131,14 +149,17 @@ class Creep(BaseUnit):
                 return creep_pos
 
     def _find_closest_to_target(self, from_pos: Point2, grid: np.ndarray) -> Point2:
-        nearest_spot = grid[
-            np.sum(
-                np.square(np.abs(grid - np.array([[from_pos.x, from_pos.y]]))), 1,
-            ).argmin()
-        ]
+        try:
+            nearest_spot = grid[
+                np.sum(
+                    np.square(np.abs(grid - np.array([[from_pos.x, from_pos.y]]))), 1,
+                ).argmin()
+            ]
 
-        pos = Point2(Pointlike((nearest_spot[0], nearest_spot[1])))
-        return pos
+            pos = Point2(Pointlike((nearest_spot[0], nearest_spot[1])))
+            return pos
+        except ValueError:
+            return from_pos.towards(self.bot.start_location, 1)
 
     def position_blocks_expansion(self, position: Point2) -> bool:
         """ Will the creep tumor block expansion """
@@ -149,7 +170,7 @@ class Creep(BaseUnit):
                 break
         return blocks_expansion
 
-    def _update_creep_map(self):
+    def update_creep_map(self):
         creep = np.where(self.bot.state.creep.data_numpy == 1)
         self.creep_map = np.vstack((creep[1], creep[0])).transpose()
         no_creep = np.where(

@@ -34,7 +34,9 @@ class Queens:
         if queens is None:
             queens: Units = self.bot.units(UnitID.QUEEN)
 
-        if iteration % 16 == 0:
+        self.creep.update_creep_map()
+
+        if iteration % 16 == 0 and self.creep.creep_coverage <= 89.0:
             await self.creep.spread_existing_tumors()
 
         for queen in queens:
@@ -181,9 +183,6 @@ class Queens:
             priority=cq_policy.get("priority", False),
             defend_against_air=cq_policy.get("defend_against_air", True),
             defend_against_ground=cq_policy.get("defend_against_ground", False),
-            distance_between_queen_tumors=cq_policy.get(
-                "distance_between_queen_tumors", 2
-            ),
             distance_between_existing_tumors=cq_policy.get(
                 "distance_between_existing_tumors", 10
             ),
@@ -199,6 +198,9 @@ class Queens:
                 self.bot.main_base_ramp.bottom_center.towards(
                     self.bot.game_info.map_center, 3
                 ),
+            ),
+            target_perc_coverage=cq_policy.get(
+                "target_perc_coverage", 75.0,
             ),
         )
         defence_queen_policy = DefenceQueen(
@@ -273,6 +275,13 @@ class Queens:
             color=(0, 255, 255),
         )
 
+        self.bot.client.debug_text_screen(
+            f"Creep Coverage: {str(self.creep.creep_coverage)}%",
+            pos=(0.2, 0.66),
+            size=13,
+            color=(0, 255, 255),
+        )
+
         queens: Units = self.bot.units(UnitID.QUEEN)
         if queens:
             for queen in queens:
@@ -283,6 +292,12 @@ class Queens:
                     self._draw_on_world(queen.position, f"DEFENCE {queen.tag}")
                 if queen.tag in self.inject_targets.keys():
                     self._draw_on_world(queen.position, f"INJECT {queen.tag}")
+
+        tumors: Units = self.bot.structures.filter(
+            lambda s: s.type_id == UnitID.CREEPTUMORBURROWED and s.tag not in self.creep.used_tumors)
+        if tumors:
+            for tumor in tumors:
+                self._draw_on_world(tumor.position, f"CREEP")
 
     def _draw_on_world(self, pos: Point2, text: str) -> None:
         z_height: float = self.bot.get_terrain_z_height(pos)

@@ -37,21 +37,21 @@ class DefenceQueen(Policy):
 class CreepQueen(Policy):
     def __init__(
         self,
-        distance_between_queen_tumors: int,
         distance_between_existing_tumors: int,
         should_tumors_block_expansions: bool,
         creep_targets: List[Point2],
         spread_style: str,
         rally_point: Point2,
+        target_perc_coverage: float,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.distance_between_queen_tumors = distance_between_queen_tumors
         self.distance_between_existing_tumors = distance_between_existing_tumors
         self.should_tumors_block_expansions = should_tumors_block_expansions
         self.creep_targets = creep_targets
         self.spread_style = spread_style
         self.rally_point = rally_point
+        self.target_perc_coverage = target_perc_coverage
 
 
 class InjectQueen(Policy):
