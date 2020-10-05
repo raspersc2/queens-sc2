@@ -1,17 +1,15 @@
 from typing import Dict, List, Optional
-import numpy as np
 
 from sc2 import BotAI
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2, Point3
 from sc2.unit import Unit
 from sc2.units import Units
-
-from sc2_queens.consts import QueenRoles
-from sc2_queens.creep import Creep
-from sc2_queens.defence import Defence
-from sc2_queens.inject import Inject
-from sc2_queens.policy import DefenceQueen, CreepQueen, InjectQueen, Policy
+from queens_sc2.consts import QueenRoles
+from queens_sc2.creep import Creep
+from queens_sc2.defence import Defence
+from queens_sc2.inject import Inject
+from queens_sc2.policy import DefenceQueen, CreepQueen, InjectQueen, Policy
 
 CREEP_POLICY: str = "creep_policy"
 DEFENCE_POLICY: str = "defence_policy"

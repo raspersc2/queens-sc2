@@ -1,15 +1,14 @@
 from typing import Dict, List, Optional
-import numpy as np
 
+import numpy as np
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2, Pointlike
 from sc2.unit import Unit
 from sc2.units import Units
-
-from sc2_queens.base_unit import BaseUnit
-from sc2_queens.policy import CreepQueen
+from queens_sc2.base_unit import BaseUnit
+from queens_sc2.policy import CreepQueen
 
 TARGETED_CREEP_SPREAD = "TARGETED"
 

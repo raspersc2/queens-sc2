@@ -1,6 +1,6 @@
+from abc import ABC
 from typing import Callable, List
 
-from abc import ABC
 from sc2.position import Point2
 
 

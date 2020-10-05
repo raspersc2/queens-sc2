@@ -7,8 +7,7 @@ from sc2.player import Bot, Computer
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
-
-from sc2_queens.queens import Queens
+from queens_sc2.queens import Queens
 
 
 class ZergBot(BotAI):
@@ -70,7 +69,7 @@ class ZergBot(BotAI):
 
     async def on_start(self) -> None:
         self.natural_pos = await self._find_natural()
-        # override defaults in the sc2_queens lib by passing a policy:
+        # override defaults in the queens_sc2 lib by passing a policy:
         self.queens = Queens(self, debug=True, **self.early_game_queen_policy)
         self.client.game_step = 6
 
