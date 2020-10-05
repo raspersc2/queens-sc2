@@ -57,10 +57,7 @@ class Defence(BaseUnit):
             await self.do_queen_micro(unit, self.enemy_air_threats)
         elif self.policy.attack_condition():
             unit.attack(self.policy.attack_target)
-        elif (
-            unit.distance_to(self.policy.rally_point) > 7
-            or not self.policy.attack_condition()
-        ):
+        elif unit.distance_to(self.policy.rally_point) > 12:
             unit.move(self.policy.rally_point)
 
     def update_policy(self, policy: DefenceQueen) -> None:

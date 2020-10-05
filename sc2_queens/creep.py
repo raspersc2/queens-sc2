@@ -11,6 +11,8 @@ from sc2.units import Units
 from sc2_queens.base_unit import BaseUnit
 from sc2_queens.policy import CreepQueen
 
+TARGETED_CREEP_SPREAD = "TARGETED"
+
 
 class Creep(BaseUnit):
     def __init__(self, bot: BotAI, creep_policy: Dict):
@@ -64,14 +66,21 @@ class Creep(BaseUnit):
             self.creep_target_index += 1
 
     async def spread_existing_tumors(self):
-        tumors: Units = self.bot.structures(UnitID.CREEPTUMORBURROWED).ready
+        tumors: Units = self.bot.structures.filter(
+            lambda s: s.type_id == UnitID.CREEPTUMORBURROWED and s.is_ready
+        )
 
         for tumor in tumors:
             should_lay_tumor: bool = True
-            if self.policy.spread_style.upper() == "TARGETED":
-                pos: Point2 = await self._find_existing_tumor_placement(tumor.position)
+            abilities = await self.bot.get_available_abilities(tumor)
+            if AbilityId.BUILD_CREEPTUMOR_TUMOR not in abilities:
+                continue
+            if self.policy.spread_style.upper() == TARGETED_CREEP_SPREAD:
+                pos: Point2 = self._find_existing_tumor_placement(tumor.position)
             else:
-                pos: Point2 = await self._find_random_creep_placement(tumor.position)
+                pos: Point2 = self._find_random_creep_placement(
+                    tumor.position, self.policy.distance_between_existing_tumors
+                )
             if pos:
                 if (
                     not self.policy.should_tumors_block_expansions
@@ -91,9 +100,7 @@ class Creep(BaseUnit):
         pos = Point2(Pointlike((nearest_spot[0], nearest_spot[1])))
         return pos
 
-    async def _find_existing_tumor_placement(
-        self, from_pos: Point2
-    ) -> Optional[Point2]:
+    def _find_existing_tumor_placement(self, from_pos: Point2) -> Optional[Point2]:
 
         # find closest no creep tile that is in pathing grid
         target: Point2 = self._find_closest_to_target(from_pos, self.no_creep_map)
@@ -110,7 +117,7 @@ class Creep(BaseUnit):
             ):
                 return new_pos
 
-    async def _find_random_creep_placement(
+    def _find_random_creep_placement(
         self, from_pos: Point2, distance: int
     ) -> Optional[Point2]:
         from random import randint
@@ -138,7 +145,7 @@ class Creep(BaseUnit):
         """ Will the creep tumor block expansion """
         blocks_expansion = False
         for expansion in self.bot.expansion_locations_list:
-            if position.distance_to(expansion) < 5:
+            if position.distance_to(expansion) < 6:
                 blocks_expansion = True
                 break
         return blocks_expansion

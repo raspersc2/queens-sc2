@@ -40,19 +40,24 @@ class ZergBot(BotAI):
         self.switched_queen_policy: bool = False
 
         self.early_game_queen_policy: Dict = {
-            "creep_queens": {"active": True, "priority": True, "max": 4},
+            "creep_queens": {
+                "active": True,
+                "priority": True,
+                "max": 4,
+                "defend_against_ground": True,
+            },
             "inject_queens": {"active": True, "priority": False, "max": 2},
         }
 
         self.mid_game_queen_policy: Dict = {
             "creep_queens": {
-                "active": True,
                 "max": 2,
-                "distance_between_existing_tumors": 5,
+                "priority": True,
+                "distance_between_existing_tumors": 4,
+                "defend_against_ground": False,
             },
             "defence_queens": {
-                "active": True,
-                "attack_condition": lambda: self.units(UnitID.QUEEN).amount > 20,
+                "attack_condition": lambda: self.units(UnitID.QUEEN).amount > 30,
             },
             "inject_queens": {"active": False, "max": 0},
         }
@@ -79,20 +84,44 @@ class ZergBot(BotAI):
         # queens: Units = self.units(UnitID.QUEEN).tags_in(self.sc2_queen_tags)
         await self.queens.manage_queens(iteration)
         # can repurpose queens by passing a new policy
-        if not self.switched_queen_policy and self.time > 450:
+        if not self.switched_queen_policy and self.time > 630:
             # adjust queen policy, allow stuck tumors to escape
             self.queens.set_new_policy(reset_roles=True, **self.mid_game_queen_policy)
+            self.switched_queen_policy = True
 
         # basic bot that only builds queens
         await self.do_basic_zergbot(iteration)
 
     @property
     def need_overlord(self) -> bool:
-        return not self.already_pending(UnitID.OVERLORD) and self.supply_left <= 3
+        if self.supply_cap < 200:
+            # supply blocked / overlord killed, ok to get extra overlords
+            if (
+                self.supply_left <= 0
+                and self.supply_used >= 28
+                and self.already_pending(UnitID.OVERLORD)
+                < (self.townhalls.ready.amount + 1)
+            ):
+                return True
+            # just one at a time at low supply counts
+            elif (
+                40 > self.supply_used >= 13
+                and self.supply_left < 3
+                and self.already_pending(UnitID.OVERLORD) < 1
+            ):
+                return True
+            # overlord production scales up depending on bases taken
+            elif self.supply_left < 3 * self.townhalls.amount and self.already_pending(
+                UnitID.OVERLORD
+            ) < (self.townhalls.ready.amount - 1):
+                return True
+        return False
 
     async def do_basic_zergbot(self, iteration: int) -> None:
         if iteration % 16 == 0:
             await self.distribute_workers()
+
+        self.adjust_attack_target()
 
         if self.bo_step < len(self.basic_bo):
             await self.do_build_order()
@@ -149,6 +178,35 @@ class ZergBot(BotAI):
                 if pos and not self.queens.creep.position_blocks_expansion(pos):
                     worker: Unit = self._select_worker(pos)
                     worker.build(structure, pos)
+
+    def adjust_attack_target(self) -> None:
+        enemy_units: Units = self.enemy_units.filter(
+            lambda u: u.type_id
+            not in {
+                UnitID.SCV,
+                UnitID.DRONE,
+                UnitID.PROBE,
+                UnitID.MULE,
+                UnitID.LARVA,
+                UnitID.EGG,
+                UnitID.CHANGELING,
+                UnitID.CHANGELINGZERGLING,
+                UnitID.CHANGELINGZERGLINGWINGS,
+                UnitID.REAPER,
+            }
+            and not u.is_flying
+        )
+        enemy_structures: Units = self.enemy_structures
+        if enemy_units:
+            self.queens.update_attack_target(
+                enemy_units.closest_to(self.start_location).position
+            )
+        elif enemy_structures:
+            self.queens.update_attack_target(
+                enemy_structures.closest_to(self.start_location).position
+            )
+        else:
+            self.queens.update_attack_target(self.enemy_start_locations[0])
 
     async def do_build_order(self) -> None:
         current_step: UnitID = self.basic_bo[self.bo_step]
@@ -223,7 +281,7 @@ class ZergBot(BotAI):
 
 if __name__ == "__main__":
     # Local game
-    random_map = random.choice(["IceandChromeLE"])
+    random_map = random.choice(["EverDreamLE"])
     random_race = random.choice([Race.Zerg, Race.Terran, Race.Protoss])
     bot = Bot(Race.Zerg, ZergBot())
     run_game(

@@ -81,6 +81,9 @@ class Queens:
         self.defence.update_policy(self.policies[DEFENCE_POLICY])
         self.inject.update_policy(self.policies[INJECT_POLICY])
 
+    def update_attack_target(self, attack_target: Point2) -> None:
+        self.defence.policy.attack_target = attack_target
+
     def _assign_queen_role(self, queen: Unit) -> None:
         """
         If queen does not have role, work out from the policy

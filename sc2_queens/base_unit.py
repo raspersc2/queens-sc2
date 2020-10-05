@@ -24,7 +24,7 @@ class BaseUnit(ABC):
                         and not unit.is_hallucination
                         and unit.type_id
                         not in {UnitID.OVERLORD, UnitID.OVERSEER, UnitID.OBSERVER}
-                        and unit.distance_to(th) < 16
+                        and unit.distance_to(th) < 18
                     )
                 )
 
@@ -50,7 +50,7 @@ class BaseUnit(ABC):
                             UnitID.CHANGELINGZERGLING,
                             UnitID.CHANGELINGZERGLINGWINGS,
                         }
-                        and unit.distance_to(th) < 14
+                        and unit.distance_to(th) < 18
                     )
                 )
 
