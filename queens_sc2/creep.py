@@ -1,5 +1,5 @@
-from typing import Dict, List, Optional
-
+from typing import Dict, List, Optional, Set
+import functools
 import numpy as np
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
@@ -7,6 +7,7 @@ from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2, Pointlike
 from sc2.unit import Unit
 from sc2.units import Units
+
 from queens_sc2.base_unit import BaseUnit
 from queens_sc2.policy import CreepQueen
 
@@ -25,9 +26,10 @@ class Creep(BaseUnit):
         self.pathing_tiles: np.ndarray = np.vstack(
             (pathable[1], pathable[0])
         ).transpose()
-        self.used_tumors: List[int] = []
+        self.used_tumors: Set[int] = set()
 
     @property
+    @functools.lru_cache()
     def creep_coverage(self) -> float:
         if self.creep_map is not None:
             creep_coverage: int = self.creep_map.shape[0]
@@ -38,9 +40,6 @@ class Creep(BaseUnit):
         return 0.0
 
     async def handle_unit(self, unit: Unit) -> None:
-        tumors: Units = self.bot.structures.filter(
-            lambda s: s.type_id == UnitID.CREEPTUMORBURROWED and s.is_ready
-        )
         self.creep_targets = self.policy.creep_targets
         if self.policy.defend_against_air and self.enemy_air_threats:
             await self.do_queen_micro(unit, self.enemy_air_threats)
@@ -87,7 +86,8 @@ class Creep(BaseUnit):
             for i, abilities in enumerate(all_tumors_abilities):
                 tumor = tumors[i]
                 if not tumor.is_idle and isinstance(tumor.order_target, Point2):
-                    self.used_tumors.append(tumor.tag)
+                    # self.used_tumors.append(tumor.tag)
+                    self.used_tumors.add(tumor.tag)
                     continue
 
                 if AbilityId.BUILD_CREEPTUMOR_TUMOR in abilities:

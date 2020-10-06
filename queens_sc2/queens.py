@@ -36,7 +36,10 @@ class Queens:
 
         self.creep.update_creep_map()
 
-        if iteration % 16 == 0 and self.creep.creep_coverage <= 89.0:
+        if iteration % 128 == 0:
+            Creep.creep_coverage.fget.cache_clear()
+
+        if (iteration % 16 == 0 and self.creep.creep_coverage <= 80.0) or iteration % 64 == 0:
             await self.creep.spread_existing_tumors()
 
         for queen in queens:
@@ -297,7 +300,7 @@ class Queens:
             lambda s: s.type_id == UnitID.CREEPTUMORBURROWED and s.tag not in self.creep.used_tumors)
         if tumors:
             for tumor in tumors:
-                self._draw_on_world(tumor.position, f"CREEP")
+                self._draw_on_world(tumor.position, f"TUMOR")
 
     def _draw_on_world(self, pos: Point2, text: str) -> None:
         z_height: float = self.bot.get_terrain_z_height(pos)
