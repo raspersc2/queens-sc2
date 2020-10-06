@@ -15,6 +15,7 @@ class Defence(BaseUnit):
         super().__init__(bot)
         self.last_transfusion: float = 0.0
         self.policy: DefenceQueen = defence_policy
+        self.used_transfuse_this_step: bool = False
 
     def get_transfuse_target(self, from_pos: Point2) -> Optional[Unit]:
         transfuse_targets: Units = self.bot.units.filter(
@@ -43,13 +44,14 @@ class Defence(BaseUnit):
 
     async def handle_unit(self, unit: Unit) -> None:
         transfuse_target: Unit = self.get_transfuse_target(unit.position)
+        self.used_transfuse_this_step: bool = False
         if (
             transfuse_target
             and transfuse_target is not unit
-            # and self.last_transfusion + 0.02 < self.bot.time
+            and not self.used_transfuse_this_step
         ):
             unit(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
-            self.last_transfusion = self.bot.time
+            self.used_transfuse_this_step = True
         elif self.policy.defend_against_ground and self.enemy_ground_threats:
             await self.do_queen_micro(unit, self.enemy_ground_threats)
         elif self.policy.defend_against_air and self.enemy_air_threats:
