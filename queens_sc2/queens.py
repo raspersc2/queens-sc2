@@ -34,12 +34,13 @@ class Queens:
         if queens is None:
             queens: Units = self.bot.units(UnitID.QUEEN)
 
-        self.creep.update_creep_map()
+        if iteration % 8 == 0:
+            self.creep.update_creep_map()
 
         if iteration % 128 == 0:
             Creep.creep_coverage.fget.cache_clear()
 
-        if (iteration % 16 == 0 and self.creep.creep_coverage <= 80.0) or iteration % 64 == 0:
+        if (iteration % 16 == 0 and self.creep.creep_coverage <= 90.0) or iteration % 128 == 0:
             await self.creep.spread_existing_tumors()
 
         for queen in queens:
@@ -68,7 +69,7 @@ class Queens:
         for k in self.inject_targets.copy():
             if self.inject_targets[k] == unit_tag:
                 del self.inject_targets[k]
-                # also assign the dead townhall's queen a new role
+                # also assign the dead townhall's queen a new role if she is alive
                 queens: Units = self.bot.units(UnitID.QUEEN).tags_in([k])
                 if queens:
                     self._assign_queen_role(queens.first)
