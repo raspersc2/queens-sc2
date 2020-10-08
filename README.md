@@ -26,6 +26,10 @@ class ZergBot(BotAI):
     async def on_start(self) -> None:
         self.queens = Queens(self)
         
+    async def on_unit_destroyed(self, unit_tag: int):
+        # checks if unit is a queen or th, library then handles appropriately
+        self.queens.remove_unit(unit_tag)
+        
     async def on_step(self, iteration: int) -> None:
         # call the queen library to handle our queens
         await self.queens.manage_queens(iteration)
