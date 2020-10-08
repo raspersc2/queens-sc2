@@ -41,6 +41,7 @@ class BaseUnit(ABC):
                     self.bot.enemy_units.filter(
                         lambda unit: not unit.is_flying
                         and not unit.is_hallucination
+                        and not unit.is_burrowed
                         and unit.type_id
                         not in {
                             UnitID.CHANGELING,
