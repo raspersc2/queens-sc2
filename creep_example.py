@@ -64,6 +64,10 @@ class ZergBot(BotAI):
     async def on_unit_destroyed(self, unit_tag: int):
         # checks if unit is a queen or th, lib then handles appropriately
         self.queens.remove_unit(unit_tag)
+        # we need to handle our own selection of creep queens in this example
+        if unit_tag in self.creep_queen_tags:
+            self.creep_queen_tags.remove(unit_tag)
+
 
     async def on_step(self, iteration: int) -> None:
         queens: Units = self.units(UnitID.QUEEN)
