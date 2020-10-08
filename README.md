@@ -111,5 +111,11 @@ mid_game_queen_policy: Dict = {
 self.queens.set_new_policy(reset_roles=True, **mid_game_queen_policy)
 ```
 
+### I only want creep spread
+Check the example in `creep_example.py` which shows how to set a creep policy and manage seperate groups of queens.
+
+## Caveat
+Defence queen logic is generalized and should work well enough up to a certain level. However, the logic as to manage extra queens can be subjective depending on playstyle. A bot at an advanced level should write their own code for excess queens and perhaps then just set a policy for creep and inject queens.
+
 ## Contributing
 Pull requests are welcome, please submit an issue for feature requests or bug reports.
