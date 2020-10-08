@@ -1,5 +1,5 @@
 import random
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Set
 
 from sc2 import BotAI, Difficulty, Race, maps, run_game
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
@@ -12,8 +12,10 @@ from queens_sc2.queens import Queens
 
 class ZergBot(BotAI):
     """
-    Example ZergBot, expands and then only builds queens
-    Demonstrates the sc2-queens lib in action
+    This bot shows how to use the library for only creep spread.
+    There will be queens doing nothing, this is intentional to
+    demonstrate the library does not have to take control of all
+    queens.
     """
 
     natural_pos: Point2
@@ -23,6 +25,10 @@ class ZergBot(BotAI):
         super().__init__()
         # SET TO FALSE BEFORE UPLOADING TO LADDER!
         self.debug: bool = True
+        # if passing a custom selection of queens to library, need to manage own queen grouping
+        self.creep_queen_tags: Set[int] = set()
+        self.max_creep_queens: int = 4
+
         self.basic_bo: List[UnitID] = [
             UnitID.OVERLORD,
             UnitID.DRONE,
@@ -38,57 +44,46 @@ class ZergBot(BotAI):
         ]
         self.bo_step: int = 0
         self.natural_drone_tag: int = 0
-        self.switched_queen_policy: bool = False
 
-        self.early_game_queen_policy: Dict = {
+        # set up a policy that only enables creep queens
+        self.creep_queen_policy: Dict = {
             "creep_queens": {
                 "active": True,
-                "priority": True,
-                "max": 4,
-                "defend_against_ground": True,
+                "max": self.max_creep_queens,
             },
-            "inject_queens": {"active": True, "priority": False, "max": 2},
+            "inject_queens": {"active": False},
+            "defence_queens": {"active": False}
         }
-
-        self.mid_game_queen_policy: Dict = {
-            "creep_queens": {
-                "max": 2,
-                "priority": True,
-                "distance_between_existing_tumors": 4,
-                "defend_against_ground": False,
-            },
-            "defence_queens": {
-                "attack_condition": lambda: self.units(UnitID.QUEEN).amount > 30,
-            },
-            "inject_queens": {"active": False, "max": 0},
-        }
-
-    async def on_before_start(self) -> None:
-        self.larva.first.train(UnitID.DRONE)
-        for drone in self.workers:
-            closest_patch: Unit = self.mineral_field.closest_to(drone)
-            drone.gather(closest_patch)
 
     async def on_start(self) -> None:
         self.natural_pos = await self._find_natural()
         # override defaults in the queens_sc2 lib by passing a policy:
-        self.queens = Queens(self, debug=self.debug, **self.early_game_queen_policy)
-        self.client.game_step = 6
+        self.queens = Queens(self, debug=self.debug, **self.creep_queen_policy)
+        self.client.game_step = 8
 
     async def on_unit_destroyed(self, unit_tag: int):
         # checks if unit is a queen or th, lib then handles appropriately
         self.queens.remove_unit(unit_tag)
 
     async def on_step(self, iteration: int) -> None:
-        # call the queen library to handle our queens
-        # can optionally pass in a custom selection of queens, ie:
-        # queens: Units = self.units(UnitID.QUEEN).tags_in(self.sc2_queen_tags)
-        await self.queens.manage_queens(iteration)
-        # can repurpose queens by passing a new policy
-        if not self.switched_queen_policy and self.time > 630:
-            # adjust queen policy, allow stuck tumors to escape
-            self.queens.set_new_policy(reset_roles=True, **self.mid_game_queen_policy)
-            self.switched_queen_policy = True
+        queens: Units = self.units(UnitID.QUEEN)
+        # work out if more creep queens are required
+        if queens and len(self.creep_queen_tags) < self.max_creep_queens:
+            queens_needed: int = self.max_creep_queens - len(self.creep_queen_tags)
+            new_creep_queens: Units = queens.take(queens_needed)
+            for queen in new_creep_queens:
+                self.creep_queen_tags.add(queen.tag)
+
+        # separate the queen units selection
+        creep_queens: Units = queens.tags_in(self.creep_queen_tags)
+        other_queens: Units = queens.tags_not_in(self.creep_queen_tags)
+        # call the queen library to handle our creep queens
+        await self.queens.manage_queens(iteration, creep_queens)
+
+        # we have full control of the other queens
+        for queen in other_queens:
+            if queen.distance_to(self.game_info.map_center) > 12:
+                queen.attack(self.game_info.map_center)
 
         # basic bot that only builds queens
         await self.do_basic_zergbot(iteration)
@@ -98,22 +93,22 @@ class ZergBot(BotAI):
         if self.supply_cap < 200:
             # supply blocked / overlord killed, ok to get extra overlords
             if (
-                self.supply_left <= 0
-                and self.supply_used >= 28
-                and self.already_pending(UnitID.OVERLORD)
-                < (self.townhalls.ready.amount + 1)
+                    self.supply_left <= 0
+                    and self.supply_used >= 28
+                    and self.already_pending(UnitID.OVERLORD)
+                    < (self.townhalls.ready.amount + 1)
             ):
                 return True
             # just one at a time at low supply counts
             elif (
-                40 > self.supply_used >= 13
-                and self.supply_left < 3
-                and self.already_pending(UnitID.OVERLORD) < 1
+                    40 > self.supply_used >= 13
+                    and self.supply_left < 3
+                    and self.already_pending(UnitID.OVERLORD) < 1
             ):
                 return True
             # overlord production scales up depending on bases taken
             elif self.supply_left < 3 * self.townhalls.amount and self.already_pending(
-                UnitID.OVERLORD
+                    UnitID.OVERLORD
             ) < (self.townhalls.ready.amount - 1):
                 return True
         return False
@@ -122,16 +117,14 @@ class ZergBot(BotAI):
         if iteration % 16 == 0:
             await self.distribute_workers()
 
-        self.adjust_attack_target()
-
         if self.bo_step < len(self.basic_bo):
             await self.do_build_order()
         else:
             # queen production
             if (
-                self.structures(UnitID.SPAWNINGPOOL).ready
-                and self.can_afford(UnitID.QUEEN)
-                and self.townhalls.idle
+                    self.structures(UnitID.SPAWNINGPOOL).ready
+                    and self.can_afford(UnitID.QUEEN)
+                    and self.townhalls.idle
             ):
                 self.townhalls.idle.first.train(UnitID.QUEEN)
 
@@ -149,72 +142,25 @@ class ZergBot(BotAI):
 
             # ensure there is a spawning pool
             if not (
-                self.structures(UnitID.SPAWNINGPOOL)
-                or self.already_pending(UnitID.SPAWNINGPOOL)
+                    self.structures(UnitID.SPAWNINGPOOL)
+                    or self.already_pending(UnitID.SPAWNINGPOOL)
             ) and self.can_afford(UnitID.SPAWNINGPOOL):
                 await self._build_pool()
 
             # expand
             if (
-                self.can_afford(UnitID.HATCHERY)
-                and not self.already_pending(UnitID.HATCHERY)
-                and self.time > 160
+                    self.can_afford(UnitID.HATCHERY)
+                    and not self.already_pending(UnitID.HATCHERY)
+                    and self.time > 160
             ):
                 await self.expand_now(max_distance=0)
-
-            # spines/spores if minerals too high
-            if self.minerals > 400 and self.structures(UnitID.SPAWNINGPOOL).ready:
-                structure: UnitID = random.choices(
-                    [UnitID.SPINECRAWLER, UnitID.SPORECRAWLER], weights=[0.7, 0.3], k=1
-                )[0]
-                # we are dumb, pick random pos on map
-                x = random.choice(
-                    range(0, self.game_info.placement_grid.data_numpy.shape[1])
-                )
-                y = random.choice(
-                    range(0, self.game_info.placement_grid.data_numpy.shape[0])
-                )
-                # let sc2 library do the magic of finding a placement from random pos
-                pos: Point2 = await self.find_placement(structure, Point2((x, y)))
-                if pos and not self.queens.creep.position_blocks_expansion(pos):
-                    worker: Unit = self._select_worker(pos)
-                    worker.build(structure, pos)
-
-    def adjust_attack_target(self) -> None:
-        enemy_units: Units = self.enemy_units.filter(
-            lambda u: u.type_id
-            not in {
-                UnitID.SCV,
-                UnitID.DRONE,
-                UnitID.PROBE,
-                UnitID.MULE,
-                UnitID.LARVA,
-                UnitID.EGG,
-                UnitID.CHANGELING,
-                UnitID.CHANGELINGZERGLING,
-                UnitID.CHANGELINGZERGLINGWINGS,
-                UnitID.REAPER,
-            }
-            and not u.is_flying
-        )
-        enemy_structures: Units = self.enemy_structures
-        if enemy_units:
-            self.queens.update_attack_target(
-                enemy_units.closest_to(self.start_location).position
-            )
-        elif enemy_structures:
-            self.queens.update_attack_target(
-                enemy_structures.closest_to(self.start_location).position
-            )
-        else:
-            self.queens.update_attack_target(self.enemy_start_locations[0])
 
     async def do_build_order(self) -> None:
         current_step: UnitID = self.basic_bo[self.bo_step]
         if (
-            current_step in (UnitID.DRONE, UnitID.OVERLORD)
-            and self.larva
-            and self.can_afford(current_step)
+                current_step in (UnitID.DRONE, UnitID.OVERLORD)
+                and self.larva
+                and self.can_afford(current_step)
         ):
             self.larva.first.train(current_step)
             self.bo_step += 1
@@ -235,9 +181,9 @@ class ZergBot(BotAI):
                     self.bo_step += 1
 
         elif (
-            current_step == UnitID.SPAWNINGPOOL
-            and self.can_afford(UnitID.SPAWNINGPOOL)
-            and self.workers
+                current_step == UnitID.SPAWNINGPOOL
+                and self.can_afford(UnitID.SPAWNINGPOOL)
+                and self.workers
         ):
             await self._build_pool()
             self.bo_step += 1
