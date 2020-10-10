@@ -52,12 +52,12 @@ class Defence(BaseUnit):
         ):
             unit(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
             self.used_transfuse_this_step = True
+        elif self.policy.attack_condition():
+            unit.attack(self.policy.attack_target)
         elif self.policy.defend_against_ground and self.enemy_ground_threats:
             await self.do_queen_micro(unit, self.enemy_ground_threats)
         elif self.policy.defend_against_air and self.enemy_air_threats:
             await self.do_queen_micro(unit, self.enemy_air_threats)
-        elif self.policy.attack_condition():
-            unit.attack(self.policy.attack_target)
         elif unit.distance_to(self.policy.rally_point) > 12:
             unit.move(self.policy.rally_point)
 
