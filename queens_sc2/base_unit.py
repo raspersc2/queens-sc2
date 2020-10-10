@@ -86,6 +86,26 @@ class BaseUnit(ABC):
         else:
             queen.attack(enemy.center)
 
+    async def do_queen_offensive_micro(self, queen: Unit, offensive_pos: Point2) -> None:
+        if not queen or not offensive_pos:
+            return
+        enemy: Units = self.bot.enemy_units
+        if enemy:
+            in_range_enemies: Units = enemy.in_attack_range_of(queen)
+            if in_range_enemies:
+                if queen.weapon_cooldown == 0:
+                    lowest_hp: Unit = min(
+                        in_range_enemies, key=lambda e: (e.health + e.shield, e.tag)
+                    )
+                    queen.attack(lowest_hp)
+                else:
+                    closest_enemy: Unit = in_range_enemies.closest_to(queen)
+                    queen.move(queen.position.towards(closest_enemy, 2))
+            else:
+                queen.attack(enemy.closest_to(queen))
+        else:
+            queen.attack(offensive_pos)
+
     def position_near_enemy(self, pos: Point2) -> bool:
         close_enemy: Units = self.bot.enemy_units.filter(
             lambda unit: unit.distance_to(pos) < 12
