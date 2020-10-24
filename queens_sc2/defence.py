@@ -17,31 +17,6 @@ class Defence(BaseUnit):
         self.policy: DefenceQueen = defence_policy
         self.used_transfuse_this_step: bool = False
 
-    def get_transfuse_target(self, from_pos: Point2) -> Optional[Unit]:
-        transfuse_targets: Units = self.bot.units.filter(
-            lambda unit: unit.health_percentage < 0.4
-            and unit.type_id
-            in {
-                UnitID.BROODLORD,
-                UnitID.CORRUPTOR,
-                UnitID.HYDRALISK,
-                UnitID.LURKER,
-                UnitID.MUTALISK,
-                UnitID.QUEEN,
-                UnitID.RAVAGER,
-                UnitID.ROACH,
-                UnitID.SWARMHOSTMP,
-                UnitID.ULTRALISK,
-            }
-            and unit.distance_to(from_pos) < 11
-        ) + self.bot.structures.filter(
-            lambda s: s.health_percentage < 0.4
-            and s.type_id in {UnitID.SPINECRAWLER, UnitID.SPORECRAWLER}
-            and s.distance_to(from_pos) < 11
-        )
-
-        return transfuse_targets.closest_to(from_pos) if transfuse_targets else None
-
     async def handle_unit(self, unit: Unit) -> None:
         transfuse_target: Unit = self.get_transfuse_target(unit.position)
         self.used_transfuse_this_step: bool = False
@@ -54,7 +29,6 @@ class Defence(BaseUnit):
             self.used_transfuse_this_step = True
         elif self.policy.attack_condition():
             await self.do_queen_offensive_micro(unit, self.policy.attack_target)
-            # unit.attack(self.policy.attack_target)
         elif self.policy.defend_against_ground and self.enemy_ground_threats:
             await self.do_queen_micro(unit, self.enemy_ground_threats)
         elif self.policy.defend_against_air and self.enemy_air_threats:

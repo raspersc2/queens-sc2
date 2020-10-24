@@ -1,3 +1,4 @@
+from typing import Optional
 from abc import ABC, abstractmethod
 
 from sc2 import BotAI
@@ -105,6 +106,31 @@ class BaseUnit(ABC):
                 queen.attack(enemy.closest_to(queen))
         else:
             queen.attack(offensive_pos)
+
+    def get_transfuse_target(self, from_pos: Point2) -> Optional[Unit]:
+        transfuse_targets: Units = self.bot.units.filter(
+            lambda unit: unit.health_percentage < 0.4
+            and unit.type_id
+            in {
+                UnitID.BROODLORD,
+                UnitID.CORRUPTOR,
+                UnitID.HYDRALISK,
+                UnitID.LURKER,
+                UnitID.MUTALISK,
+                UnitID.QUEEN,
+                UnitID.RAVAGER,
+                UnitID.ROACH,
+                UnitID.SWARMHOSTMP,
+                UnitID.ULTRALISK,
+            }
+            and unit.distance_to(from_pos) < 11
+        ) + self.bot.structures.filter(
+            lambda s: s.health_percentage < 0.4
+            and s.type_id in {UnitID.SPINECRAWLER, UnitID.SPORECRAWLER}
+            and s.distance_to(from_pos) < 11
+        )
+
+        return transfuse_targets.closest_to(from_pos) if transfuse_targets else None
 
     def position_near_enemy(self, pos: Point2) -> bool:
         close_enemy: Units = self.bot.enemy_units.filter(

@@ -27,6 +27,7 @@ class Queens:
         self.creep: Creep = Creep(bot, self.policies[CREEP_POLICY])
         self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY])
         self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY])
+        self.creep.update_creep_map()
 
     async def manage_queens(
         self, iteration: int, queens: Optional[Units] = None

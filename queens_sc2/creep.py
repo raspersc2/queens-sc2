@@ -9,7 +9,6 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from queens_sc2.base_unit import BaseUnit
-from queens_sc2.policy import CreepQueen
 
 TARGETED_CREEP_SPREAD = "TARGETED"
 
@@ -17,7 +16,7 @@ TARGETED_CREEP_SPREAD = "TARGETED"
 class Creep(BaseUnit):
     def __init__(self, bot: BotAI, creep_policy: Dict):
         super().__init__(bot)
-        self.policy: CreepQueen = creep_policy
+        self.policy: Dict = creep_policy
         self.creep_map: np.ndarray = None
         self.no_creep_map: np.ndarray = None
         self.creep_targets: List[Point2] = []
@@ -41,7 +40,15 @@ class Creep(BaseUnit):
 
     async def handle_unit(self, unit: Unit) -> None:
         self.creep_targets = self.policy.creep_targets
-        if self.policy.defend_against_air and self.enemy_air_threats:
+        transfuse_target: Unit = self.get_transfuse_target(unit.position)
+        # allow transfuse if energy has built up
+        if (
+            unit.energy >= 50
+            and transfuse_target
+            and transfuse_target is not unit
+        ):
+            unit(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
+        elif self.policy.defend_against_air and self.enemy_air_threats:
             await self.do_queen_micro(unit, self.enemy_air_threats)
         elif self.policy.defend_against_ground and self.enemy_ground_threats:
             await self.do_queen_micro(unit, self.enemy_ground_threats)
