@@ -26,6 +26,7 @@ class Creep(BaseUnit):
             (pathable[1], pathable[0])
         ).transpose()
         self.used_tumors: Set[int] = set()
+        self.first_tumor: bool = True
 
     @property
     @functools.lru_cache()
@@ -69,6 +70,11 @@ class Creep(BaseUnit):
     async def spread_creep(self, queen: Unit) -> None:
         if self.creep_target_index >= len(self.creep_targets):
             self.creep_target_index = 0
+
+        if self.first_tumor and self.policy.first_tumor_position:
+            queen(AbilityId.BUILD_CREEPTUMOR_QUEEN, self.policy.first_tumor_position)
+            self.first_tumor = False
+            return
 
         should_lay_tumor: bool = True
         pos: Point2 = self._find_closest_to_target(

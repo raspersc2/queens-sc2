@@ -43,6 +43,7 @@ class CreepQueen(Policy):
         spread_style: str,
         rally_point: Point2,
         target_perc_coverage: float,
+        first_tumor_position: Point2,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -52,6 +53,7 @@ class CreepQueen(Policy):
         self.spread_style = spread_style
         self.rally_point = rally_point
         self.target_perc_coverage = target_perc_coverage
+        self.first_tumor_position = first_tumor_position
 
 
 class InjectQueen(Policy):

@@ -207,6 +207,9 @@ class Queens:
             target_perc_coverage=cq_policy.get(
                 "target_perc_coverage", 75.0,
             ),
+            first_tumor_position=cq_policy.get(
+                "first_tumor_position", None,
+            ),
         )
         defence_queen_policy = DefenceQueen(
             active=dq_policy.get("active", True),

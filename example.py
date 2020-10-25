@@ -15,7 +15,8 @@ class ZergBot(BotAI):
     Example ZergBot, expands and then only builds queens
     Demonstrates the sc2-queens lib in action
     """
-
+    mid_game_queen_policy: Dict
+    early_game_queen_policy: Dict
     natural_pos: Point2
     queens: Queens
 
@@ -40,17 +41,25 @@ class ZergBot(BotAI):
         self.natural_drone_tag: int = 0
         self.switched_queen_policy: bool = False
 
-        self.early_game_queen_policy: Dict = {
+    async def on_before_start(self) -> None:
+        self.larva.first.train(UnitID.DRONE)
+        for drone in self.workers:
+            closest_patch: Unit = self.mineral_field.closest_to(drone)
+            drone.gather(closest_patch)
+
+    async def on_start(self) -> None:
+        self.natural_pos = await self._find_natural()
+        self.early_game_queen_policy = {
             "creep_queens": {
                 "active": True,
                 "priority": True,
                 "max": 4,
                 "defend_against_ground": True,
+                "first_tumor_position": self.start_location.towards(self.main_base_ramp.top_center, 5)
             },
             "inject_queens": {"active": True, "priority": False, "max": 2},
         }
-
-        self.mid_game_queen_policy: Dict = {
+        self.mid_game_queen_policy = {
             "creep_queens": {
                 "max": 2,
                 "priority": True,
@@ -62,15 +71,6 @@ class ZergBot(BotAI):
             },
             "inject_queens": {"active": False, "max": 0},
         }
-
-    async def on_before_start(self) -> None:
-        self.larva.first.train(UnitID.DRONE)
-        for drone in self.workers:
-            closest_patch: Unit = self.mineral_field.closest_to(drone)
-            drone.gather(closest_patch)
-
-    async def on_start(self) -> None:
-        self.natural_pos = await self._find_natural()
         # override defaults in the queens_sc2 lib by passing a policy:
         self.queens = Queens(self, debug=self.debug, **self.early_game_queen_policy)
         self.client.game_step = 6
