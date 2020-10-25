@@ -57,7 +57,8 @@ queen_policy: Dict = {
       "should_tumors_block_expansions": bool,
       "creep_targets": List[Point2],
       "spread_style": str, # "targeted" is default, or "random"
-      "rally_point": Point2
+      "rally_point": Point2,
+      "first_tumor_position": Optional[Point2]
   },
   "defence_queens": {
       "active": bool,
