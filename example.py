@@ -52,7 +52,7 @@ class ZergBot(BotAI):
         self.early_game_queen_policy = {
             "creep_queens": {
                 "active": True,
-                "priority": True,
+                "priority": 2,
                 "max": 4,
                 "defend_against_ground": True,
                 "first_tumor_position": self.start_location.towards(self.main_base_ramp.top_center, 5)

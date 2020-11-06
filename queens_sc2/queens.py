@@ -111,18 +111,19 @@ class Queens:
         # work out which roles are of priority
         for key, value in self.policies.items():
             if value.active and value.priority:
+                max_queens: int = value.priority if type(value.priority) == int else value.max_queens
                 if (
                     key == CREEP_POLICY
-                    and len(self.creep_queen_tags) < value.max_queens
+                    and len(self.creep_queen_tags) < max_queens
                 ):
                     priorities.append(QueenRoles.Creep)
                 elif (
                     key == DEFENCE_POLICY
-                    and len(self.defence_queen_tags) < value.max_queens
+                    and len(self.defence_queen_tags) < max_queens
                 ):
                     priorities.append(QueenRoles.Defence)
                 elif key == INJECT_POLICY and len(self.inject_targets) < min(
-                    value.max_queens, ready_townhalls.amount
+                    max_queens, ready_townhalls.amount
                 ):
                     priorities.append(QueenRoles.Inject)
         if QueenRoles.Inject in priorities and ths_without_queen:
@@ -150,7 +151,7 @@ class Queens:
                 and self.policies[CREEP_POLICY].active
             ):
                 self.creep_queen_tags.append(queen.tag)
-            # leftover queens get assigned to defence regardless
+            # leftover queens get assigned to defence regardless, otherwise queen would do nothing
             else:
                 self.defence_queen_tags.append(queen.tag)
 
@@ -185,7 +186,7 @@ class Queens:
         creep_queen_policy = CreepQueen(
             active=cq_policy.get("active", True),
             max_queens=cq_policy.get("max", 2),
-            priority=cq_policy.get("priority", False),
+            priority=cq_policy.get("priority", 1),
             defend_against_air=cq_policy.get("defend_against_air", True),
             defend_against_ground=cq_policy.get("defend_against_ground", False),
             distance_between_existing_tumors=cq_policy.get(
@@ -231,7 +232,7 @@ class Queens:
         inject_queen_policy = InjectQueen(
             active=iq_policy.get("active", True),
             max_queens=iq_policy.get("max", 6),
-            priority=iq_policy.get("priority", True),
+            priority=iq_policy.get("priority", False),
             defend_against_air=iq_policy.get("defend_against_air", False),
             defend_against_ground=iq_policy.get("defend_against_ground", False),
         )
