@@ -50,7 +50,7 @@ queen_policy: Dict = {
   "creep_queens": {
       "active": bool,
       "max_queens": int,
-      "priority": bool,
+      "priority": Union[bool, int],
       "defend_against_air": bool,
       "defend_against_ground": bool,
       "distance_between_existing_tumors": int,
@@ -63,7 +63,7 @@ queen_policy: Dict = {
   "defence_queens": {
       "active": bool,
       "max_queens": int,
-      "priority": bool,
+      "priority": Union[bool, int],
       "defend_against_air": bool,
       "defend_against_ground": bool,
       "attack_condition": Callable,
@@ -73,7 +73,7 @@ queen_policy: Dict = {
   "inject_queens": {
       "active": bool,
       "max_queens": int,
-      "priority": bool,
+      "priority": Union[bool, int],
       "defend_against_air": bool,
       "defend_against_ground": bool,},
 }
