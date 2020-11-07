@@ -30,7 +30,11 @@ class Queens:
         self.creep.update_creep_map()
 
     async def manage_queens(
-        self, iteration: int, queens: Optional[Units] = None
+        self,
+        iteration: int,
+        air_threats_near_bases: Optional[Units] = None,
+        ground_threats_near_bases: Optional[Units] = None,
+        queens: Optional[Units] = None,
     ) -> None:
         if queens is None:
             queens: Units = self.bot.units(UnitID.QUEEN)
@@ -49,11 +53,20 @@ class Queens:
         for queen in queens:
             self._assign_queen_role(queen)
             if queen.tag in self.inject_targets.keys():
-                await self.inject.handle_unit(queen, self.inject_targets[queen.tag])
+                await self.inject.handle_unit(
+                    air_threats_near_bases,
+                    ground_threats_near_bases,
+                    queen,
+                    self.inject_targets[queen.tag],
+                )
             elif queen.tag in self.creep_queen_tags:
-                await self.creep.handle_unit(queen)
+                await self.creep.handle_unit(
+                    air_threats_near_bases, ground_threats_near_bases, queen
+                )
             elif queen.tag in self.defence_queen_tags:
-                await self.defence.handle_unit(queen)
+                await self.defence.handle_unit(
+                    air_threats_near_bases, ground_threats_near_bases, queen
+                )
         if self.debug:
             await self._draw_debug_info()
 
@@ -214,6 +227,11 @@ class Queens:
                 "first_tumor_position",
                 None,
             ),
+            pass_own_threats=cq_policy.get(
+                "pass_own_threats",
+                False,
+            ),
+            prioritize_creep=cq_policy.get("prioritize_creep", lambda: True),
         )
         defence_queen_policy = DefenceQueen(
             active=dq_policy.get("active", True),
@@ -231,6 +249,10 @@ class Queens:
                     self.bot.game_info.map_center, 3
                 ),
             ),
+            pass_own_threats=cq_policy.get(
+                "pass_own_threats",
+                False,
+            ),
         )
         inject_queen_policy = InjectQueen(
             active=iq_policy.get("active", True),
@@ -238,6 +260,10 @@ class Queens:
             priority=iq_policy.get("priority", False),
             defend_against_air=iq_policy.get("defend_against_air", False),
             defend_against_ground=iq_policy.get("defend_against_ground", False),
+            pass_own_threats=cq_policy.get(
+                "pass_own_threats",
+                False,
+            ),
         )
 
         policies = {

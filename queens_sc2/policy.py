@@ -12,12 +12,14 @@ class Policy(ABC):
         priority: bool,
         defend_against_air: bool,
         defend_against_ground: bool,
+        pass_own_threats: bool,
     ):
         self.active = active
         self.max_queens = max_queens
         self.priority = priority
         self.defend_against_air = defend_against_air
         self.defend_against_ground = defend_against_ground
+        self.pass_own_threats = pass_own_threats
 
 
 class DefenceQueen(Policy):
@@ -44,6 +46,7 @@ class CreepQueen(Policy):
         rally_point: Point2,
         target_perc_coverage: float,
         first_tumor_position: Point2,
+        prioritize_creep: Callable,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -54,6 +57,7 @@ class CreepQueen(Policy):
         self.rally_point = rally_point
         self.target_perc_coverage = target_perc_coverage
         self.first_tumor_position = first_tumor_position
+        self.prioritize_creep = prioritize_creep
 
 
 class InjectQueen(Policy):

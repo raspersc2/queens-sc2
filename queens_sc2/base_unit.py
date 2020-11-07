@@ -1,11 +1,13 @@
-from typing import Optional
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from sc2 import BotAI
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
+
+from queens_sc2.policy import Policy
 
 
 class BaseUnit(ABC):
@@ -59,11 +61,17 @@ class BaseUnit(ABC):
         return ground_threats
 
     @abstractmethod
-    async def handle_unit(self, unit: Unit) -> None:
+    async def handle_unit(
+        self,
+        air_threats_near_bases: Units,
+        ground_threats_near_bases: Units,
+        unit: Unit,
+        th_tag: int,
+    ) -> None:
         pass
 
     @abstractmethod
-    def update_policy(self, policy) -> None:
+    def update_policy(self, policy: Policy) -> None:
         pass
 
     async def do_queen_micro(self, queen: Unit, enemy: Units) -> None:
@@ -87,7 +95,9 @@ class BaseUnit(ABC):
         else:
             queen.attack(enemy.center)
 
-    async def do_queen_offensive_micro(self, queen: Unit, offensive_pos: Point2) -> None:
+    async def do_queen_offensive_micro(
+        self, queen: Unit, offensive_pos: Point2
+    ) -> None:
         if not queen or not offensive_pos:
             return
         enemy: Units = self.bot.enemy_units

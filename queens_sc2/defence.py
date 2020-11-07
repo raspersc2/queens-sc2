@@ -1,6 +1,7 @@
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
 from sc2.unit import Unit
+from sc2.units import Units
 
 from queens_sc2.base_unit import BaseUnit
 from queens_sc2.policy import Policy
@@ -13,7 +14,20 @@ class Defence(BaseUnit):
         self.policy: Policy = defence_policy
         self.used_transfuse_this_step: bool = False
 
-    async def handle_unit(self, unit: Unit) -> None:
+    async def handle_unit(
+        self,
+        air_threats_near_bases: Units,
+        ground_threats_near_bases: Units,
+        unit: Unit,
+        th_tag: int = 0,
+    ) -> None:
+        if self.policy.pass_own_threats:
+            air_threats: Units = air_threats_near_bases
+            ground_threats: Units = ground_threats_near_bases
+        else:
+            air_threats: Units = self.enemy_air_threats
+            ground_threats: Units = self.enemy_ground_threats
+
         transfuse_target: Unit = self.get_transfuse_target(unit.position)
         self.used_transfuse_this_step: bool = False
         if (
@@ -25,10 +39,10 @@ class Defence(BaseUnit):
             self.used_transfuse_this_step = True
         elif self.policy.attack_condition():
             await self.do_queen_offensive_micro(unit, self.policy.attack_target)
-        elif self.policy.defend_against_ground and self.enemy_ground_threats:
-            await self.do_queen_micro(unit, self.enemy_ground_threats)
-        elif self.policy.defend_against_air and self.enemy_air_threats:
-            await self.do_queen_micro(unit, self.enemy_air_threats)
+        elif self.policy.defend_against_ground and ground_threats:
+            await self.do_queen_micro(unit, ground_threats)
+        elif self.policy.defend_against_air and air_threats:
+            await self.do_queen_micro(unit, air_threats)
         elif unit.distance_to(self.policy.rally_point) > 12:
             unit.move(self.policy.rally_point)
 

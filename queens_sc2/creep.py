@@ -42,24 +42,43 @@ class Creep(BaseUnit):
 
         return 0.0
 
-    async def handle_unit(self, unit: Unit) -> None:
+    async def handle_unit(
+        self,
+        air_threats_near_bases: Units,
+        ground_threats_near_bases: Units,
+        unit: Unit,
+        th_tag: int = 0,
+    ) -> None:
+        if self.policy.pass_own_threats:
+            air_threats: Units = air_threats_near_bases
+            ground_threats: Units = ground_threats_near_bases
+        else:
+            air_threats: Units = self.enemy_air_threats
+            ground_threats: Units = self.enemy_ground_threats
+
+        should_spread_creep: bool = self._check_queen_can_spread_creep(unit)
         self.creep_targets = self.policy.creep_targets
         transfuse_target: Unit = self.get_transfuse_target(unit.position)
         # allow transfuse if energy has built up
         if unit.energy >= 50 and transfuse_target and transfuse_target is not unit:
             unit(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
-        elif self.policy.defend_against_air and self.enemy_air_threats:
-            await self.do_queen_micro(unit, self.enemy_air_threats)
-        elif self.policy.defend_against_ground and self.enemy_ground_threats:
-            await self.do_queen_micro(unit, self.enemy_ground_threats)
-        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
-            unit.move(self.policy.rally_point)
+        elif self.policy.defend_against_air and air_threats and not should_spread_creep:
+            await self.do_queen_micro(unit, air_threats)
+        elif (
+            self.policy.defend_against_ground
+            and ground_threats
+            and not should_spread_creep
+        ):
+            await self.do_queen_micro(unit, ground_threats)
         elif (
             unit.energy >= 25
             and len(unit.orders) == 0
             and self.creep_coverage < self.policy.target_perc_coverage
         ):
             await self.spread_creep(unit)
+        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
+            unit.move(self.policy.rally_point)
+
         elif unit.distance_to(self.policy.rally_point) > 7:
             if len(unit.orders) > 0:
                 if unit.orders[0].ability.button_name != "CreepTumor":
@@ -67,8 +86,11 @@ class Creep(BaseUnit):
             elif len(unit.orders) == 0:
                 unit.move(self.policy.rally_point)
 
-    def update_policy(self, policy) -> None:
+    def update_policy(self, policy: Policy) -> None:
         self.policy = policy
+
+    def _check_queen_can_spread_creep(self, queen: Unit) -> bool:
+        return queen.energy >= 25 and self.policy.prioritize_creep()
 
     async def spread_creep(self, queen: Unit) -> None:
         if self.creep_target_index >= len(self.creep_targets):
