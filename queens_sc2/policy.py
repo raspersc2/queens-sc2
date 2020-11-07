@@ -1,7 +1,8 @@
 from abc import ABC
-from typing import Callable, List
+from typing import Callable, List, Set
 
 from sc2.position import Point2
+from sc2.ids.unit_typeid import UnitTypeId as UnitID
 
 
 class Policy(ABC):
@@ -13,6 +14,7 @@ class Policy(ABC):
         defend_against_air: bool,
         defend_against_ground: bool,
         pass_own_threats: bool,
+        priority_defence_list: Set[UnitID],
     ):
         self.active = active
         self.max_queens = max_queens
@@ -20,6 +22,7 @@ class Policy(ABC):
         self.defend_against_air = defend_against_air
         self.defend_against_ground = defend_against_ground
         self.pass_own_threats = pass_own_threats
+        self.priority_defence_list = priority_defence_list
 
 
 class DefenceQueen(Policy):

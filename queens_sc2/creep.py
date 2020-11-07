@@ -21,7 +21,7 @@ class Creep(BaseUnit):
 
     def __init__(self, bot: BotAI, creep_policy: Policy):
         super().__init__(bot)
-        self.policy: Policy = creep_policy
+        self.policy = creep_policy
         self.creep_targets: List[Point2] = []
         self.creep_target_index: int = 0
         pathable: np.ndarray = np.where(self.bot.game_info.pathing_grid.data_numpy == 1)
@@ -62,6 +62,8 @@ class Creep(BaseUnit):
         # allow transfuse if energy has built up
         if unit.energy >= 50 and transfuse_target and transfuse_target is not unit:
             unit(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
+        elif self.priority_enemy_units:
+            await self.do_queen_micro(unit, self.priority_enemy_units)
         elif self.policy.defend_against_air and air_threats and not should_spread_creep:
             await self.do_queen_micro(unit, air_threats)
         elif (

@@ -10,7 +10,7 @@ from queens_sc2.policy import Policy
 class Inject(BaseUnit):
     def __init__(self, bot: BotAI, inject_policy: Policy):
         super().__init__(bot)
-        self.policy: Policy = inject_policy
+        self.policy = inject_policy
 
     async def handle_unit(
         self,
@@ -29,7 +29,9 @@ class Inject(BaseUnit):
         ths: Units = self.bot.townhalls.ready.tags_in([th_tag])
         if ths:
             th: Unit = ths.first
-            if self.policy.defend_against_air and air_threats:
+            if self.priority_enemy_units:
+                await self.do_queen_micro(unit, self.priority_enemy_units)
+            elif self.policy.defend_against_air and air_threats:
                 await self.do_queen_micro(unit, air_threats)
             elif self.policy.defend_against_ground and ground_threats:
                 await self.do_queen_micro(unit, ground_threats)

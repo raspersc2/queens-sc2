@@ -59,8 +59,32 @@ class ZergBot(BotAI):
                 "first_tumor_position": self.start_location.towards(
                     self.main_base_ramp.top_center, 5
                 ),
+                "priority_defence_list": {
+                    UnitID.BATTLECRUISER,
+                    UnitID.LIBERATOR,
+                    UnitID.LIBERATORAG,
+                    UnitID.VOIDRAY,
+                },
             },
-            "inject_queens": {"active": True, "priority": False, "max": 2},
+            "defence_queens": {
+                "priority_defence_list": {
+                    UnitID.BATTLECRUISER,
+                    UnitID.LIBERATOR,
+                    UnitID.LIBERATORAG,
+                    UnitID.VOIDRAY,
+                }
+            },
+            "inject_queens": {
+                "active": True,
+                "priority": False,
+                "max": 2,
+                "priority_defence_list": {
+                    UnitID.BATTLECRUISER,
+                    UnitID.LIBERATOR,
+                    UnitID.LIBERATORAG,
+                    UnitID.VOIDRAY,
+                },
+            },
         }
         self.mid_game_queen_policy = {
             "creep_queens": {

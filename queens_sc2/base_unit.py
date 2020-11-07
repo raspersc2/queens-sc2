@@ -11,6 +11,8 @@ from queens_sc2.policy import Policy
 
 
 class BaseUnit(ABC):
+    policy: Policy
+
     def __init__(self, bot: BotAI):
         self.bot: BotAI = bot
 
@@ -59,6 +61,13 @@ class BaseUnit(ABC):
                 )
 
         return ground_threats
+
+    @property
+    def priority_enemy_units(self) -> Optional[Units]:
+        if len(self.policy.priority_defence_list) != 0:
+            all_threats: Units = self.enemy_air_threats + self.enemy_ground_threats
+            priority_threats: Units = all_threats(self.policy.priority_defence_list)
+            return priority_threats
 
     @abstractmethod
     async def handle_unit(

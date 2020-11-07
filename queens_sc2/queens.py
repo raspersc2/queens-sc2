@@ -196,6 +196,7 @@ class Queens:
         cq_policy = queen_policy.get("creep_queens", {})
         dq_policy = queen_policy.get("defence_queens", {})
         iq_policy = queen_policy.get("inject_queens", {})
+
         creep_queen_policy = CreepQueen(
             active=cq_policy.get("active", True),
             max_queens=cq_policy.get("max", 2),
@@ -232,7 +233,9 @@ class Queens:
                 False,
             ),
             prioritize_creep=cq_policy.get("prioritize_creep", lambda: True),
+            priority_defence_list=cq_policy.get("priority_defence_list", set()),
         )
+
         defence_queen_policy = DefenceQueen(
             active=dq_policy.get("active", True),
             max_queens=dq_policy.get("max", 6),
@@ -249,21 +252,24 @@ class Queens:
                     self.bot.game_info.map_center, 3
                 ),
             ),
-            pass_own_threats=cq_policy.get(
+            pass_own_threats=dq_policy.get(
                 "pass_own_threats",
                 False,
             ),
+            priority_defence_list=dq_policy.get("priority_defence_list", set()),
         )
+
         inject_queen_policy = InjectQueen(
             active=iq_policy.get("active", True),
             max_queens=iq_policy.get("max", 6),
             priority=iq_policy.get("priority", False),
             defend_against_air=iq_policy.get("defend_against_air", False),
             defend_against_ground=iq_policy.get("defend_against_ground", False),
-            pass_own_threats=cq_policy.get(
+            pass_own_threats=iq_policy.get(
                 "pass_own_threats",
                 False,
             ),
+            priority_defence_list=iq_policy.get("priority_defence_list", set()),
         )
 
         policies = {
@@ -316,6 +322,13 @@ class Queens:
         self.bot.client.debug_text_screen(
             f"Creep Coverage: {str(self.creep.creep_coverage)}%",
             pos=(0.2, 0.66),
+            size=13,
+            color=(0, 255, 255),
+        )
+
+        self.bot.client.debug_text_screen(
+            f"Priority defend against: {str(self.defence.policy.priority_defence_list)}",
+            pos=(0.2, 0.68),
             size=13,
             color=(0, 255, 255),
         )

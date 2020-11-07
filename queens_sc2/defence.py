@@ -11,7 +11,7 @@ class Defence(BaseUnit):
     def __init__(self, bot: BotAI, defence_policy: Policy):
         super().__init__(bot)
         self.last_transfusion: float = 0.0
-        self.policy: Policy = defence_policy
+        self.policy = defence_policy
         self.used_transfuse_this_step: bool = False
 
     async def handle_unit(
@@ -37,6 +37,8 @@ class Defence(BaseUnit):
         ):
             unit(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
             self.used_transfuse_this_step = True
+        elif self.priority_enemy_units:
+            await self.do_queen_micro(unit, self.priority_enemy_units)
         elif self.policy.attack_condition():
             await self.do_queen_offensive_micro(unit, self.policy.attack_target)
         elif self.policy.defend_against_ground and ground_threats:
