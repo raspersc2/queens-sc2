@@ -3,7 +3,7 @@ queens-sc2 is a small customizable library to aid development of sc2 zerg bots d
 queens-sc2 was created to allow zerg authors to rapidly develop a bot without being encumbered by queen management. The main idea of queens-sc2 is the author creates a policy which the library reads and handles appropriately.
 
 ## Prerequisites 
-It is expected the user has already installed [python-sc2](https://github.com/BurnySc2/python-sc2), the only other library used in this project is [numpy](https://numpy.org/) https://numpy.org/.
+It is expected the user has already installed [python-sc2](https://github.com/BurnySc2/python-sc2), the only other library used in this project is [numpy](https://numpy.org/).
 
 ## Getting started
 Clone or download this repository and put the `queens_sc2` directory in your bot folder like so:
@@ -58,7 +58,8 @@ queen_policy: Dict = {
       "creep_targets": List[Point2],
       "spread_style": str, # "targeted" is default, or "random"
       "rally_point": Point2,
-      "first_tumor_position": Optional[Point2]
+      "first_tumor_position": Optional[Point2],
+      "prioritize_creep": Callable # prioritize over defending bases if energy is available?
   },
   "defence_queens": {
       "active": bool,
