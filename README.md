@@ -59,8 +59,9 @@ queen_policy: Dict = {
       "spread_style": str, # "targeted" is default, or "random"
       "rally_point": Point2,
       "first_tumor_position": Optional[Point2],
-      "prioritize_creep": Callable # prioritize over defending bases if energy is available?
-      "pass_own_threats": bool # if set to True, library wont calculate enemy near bases, you should pass air and ground threats to manage_queens() method
+      "prioritize_creep": Callable, # prioritize over defending bases if energy is available?
+      "pass_own_threats": bool, # if set to True, library wont calculate enemy near bases, you should pass air and ground threats to manage_queens() method
+      "priority_defence_list", set[UnitID] # queens will prioritise defending these unit types over all other jobs
   },
   "defence_queens": {
       "active": bool,
@@ -71,7 +72,8 @@ queen_policy: Dict = {
       "attack_condition": Callable,
       "attack_target": Point2,
       "rally_point": Point2,
-      "pass_own_threats": bool
+      "pass_own_threats": bool,
+      "priority_defence_list", set[UnitID]
   },
   "inject_queens": {
       "active": bool,
@@ -79,7 +81,9 @@ queen_policy: Dict = {
       "priority": Union[bool, int],
       "defend_against_air": bool,
       "defend_against_ground": bool,
-      "pass_own_threats": bool},
+      "pass_own_threats": bool,
+      "priority_defence_list", set[UnitID]
+    },
 }
 ```
 
