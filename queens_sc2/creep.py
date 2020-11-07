@@ -1,5 +1,6 @@
-from typing import Dict, List, Optional, Set
 import functools
+from typing import List, Optional, Set
+
 import numpy as np
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
@@ -9,16 +10,18 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from queens_sc2.base_unit import BaseUnit
+from queens_sc2.policy import Policy
 
 TARGETED_CREEP_SPREAD = "TARGETED"
 
 
 class Creep(BaseUnit):
-    def __init__(self, bot: BotAI, creep_policy: Dict):
+    creep_map: np.ndarray
+    no_creep_map: np.ndarray
+
+    def __init__(self, bot: BotAI, creep_policy: Policy):
         super().__init__(bot)
-        self.policy: Dict = creep_policy
-        self.creep_map: np.ndarray = None
-        self.no_creep_map: np.ndarray = None
+        self.policy: Policy = creep_policy
         self.creep_targets: List[Point2] = []
         self.creep_target_index: int = 0
         pathable: np.ndarray = np.where(self.bot.game_info.pathing_grid.data_numpy == 1)
@@ -43,11 +46,7 @@ class Creep(BaseUnit):
         self.creep_targets = self.policy.creep_targets
         transfuse_target: Unit = self.get_transfuse_target(unit.position)
         # allow transfuse if energy has built up
-        if (
-            unit.energy >= 50
-            and transfuse_target
-            and transfuse_target is not unit
-        ):
+        if unit.energy >= 50 and transfuse_target and transfuse_target is not unit:
             unit(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
         elif self.policy.defend_against_air and self.enemy_air_threats:
             await self.do_queen_micro(unit, self.enemy_air_threats)
@@ -55,7 +54,11 @@ class Creep(BaseUnit):
             await self.do_queen_micro(unit, self.enemy_ground_threats)
         elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
             unit.move(self.policy.rally_point)
-        elif unit.energy >= 25 and len(unit.orders) == 0 and self.creep_coverage < self.policy.target_perc_coverage:
+        elif (
+            unit.energy >= 25
+            and len(unit.orders) == 0
+            and self.creep_coverage < self.policy.target_perc_coverage
+        ):
             await self.spread_creep(unit)
         elif unit.distance_to(self.policy.rally_point) > 7:
             if len(unit.orders) > 0:
@@ -98,7 +101,8 @@ class Creep(BaseUnit):
 
     async def spread_existing_tumors(self):
         tumors: Units = self.bot.structures.filter(
-            lambda s: s.type_id == UnitID.CREEPTUMORBURROWED and s.tag not in self.used_tumors
+            lambda s: s.type_id == UnitID.CREEPTUMORBURROWED
+            and s.tag not in self.used_tumors
         )
         if tumors:
             all_tumors_abilities = await self.bot.get_available_abilities(tumors)
@@ -112,15 +116,17 @@ class Creep(BaseUnit):
                 if AbilityId.BUILD_CREEPTUMOR_TUMOR in abilities:
                     should_lay_tumor: bool = True
                     if self.policy.spread_style.upper() == TARGETED_CREEP_SPREAD:
-                        pos: Point2 = self._find_existing_tumor_placement(tumor.position)
+                        pos: Point2 = self._find_existing_tumor_placement(
+                            tumor.position
+                        )
                     else:
                         pos: Point2 = self._find_random_creep_placement(
                             tumor.position, self.policy.distance_between_existing_tumors
                         )
                     if pos:
                         if (
-                                not self.policy.should_tumors_block_expansions
-                                and self.position_blocks_expansion(pos)
+                            not self.policy.should_tumors_block_expansions
+                            and self.position_blocks_expansion(pos)
                         ) or self.position_near_enemy(pos):
                             should_lay_tumor = False
                         if should_lay_tumor:
@@ -129,7 +135,8 @@ class Creep(BaseUnit):
     def _find_creep_placement(self, target: Point2) -> Point2:
         nearest_spot = self.creep_map[
             np.sum(
-                np.square(np.abs(self.creep_map - np.array([[target.x, target.y]]))), 1,
+                np.square(np.abs(self.creep_map - np.array([[target.x, target.y]]))),
+                1,
             ).argmin()
         ]
 
@@ -171,7 +178,8 @@ class Creep(BaseUnit):
         try:
             nearest_spot = grid[
                 np.sum(
-                    np.square(np.abs(grid - np.array([[from_pos.x, from_pos.y]]))), 1,
+                    np.square(np.abs(grid - np.array([[from_pos.x, from_pos.y]]))),
+                    1,
                 ).argmin()
             ]
 

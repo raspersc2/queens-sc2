@@ -41,7 +41,9 @@ class Queens:
         if iteration % 128 == 0:
             Creep.creep_coverage.fget.cache_clear()
 
-        if (iteration % 16 == 0 and self.creep.creep_coverage <= 90.0) or iteration % 128 == 0:
+        if (
+            iteration % 16 == 0 and self.creep.creep_coverage <= 90.0
+        ) or iteration % 128 == 0:
             await self.creep.spread_existing_tumors()
 
         for queen in queens:
@@ -103,7 +105,7 @@ class Queens:
         # if there are priority clashes, revert to:
         # inject, creep, defence
         # if there is a priority, assign it to the relevant group
-        priorities: List[str] = []
+        priorities: List[QueenRoles] = []
         ready_townhalls: Units = self.bot.townhalls.ready
         ths_without_queen: Units = ready_townhalls.filter(
             lambda townhall: townhall.tag not in self.inject_targets.values()
@@ -111,15 +113,13 @@ class Queens:
         # work out which roles are of priority
         for key, value in self.policies.items():
             if value.active and value.priority:
-                max_queens: int = value.priority if type(value.priority) == int else value.max_queens
-                if (
-                    key == CREEP_POLICY
-                    and len(self.creep_queen_tags) < max_queens
-                ):
+                max_queens: int = (
+                    value.priority if type(value.priority) == int else value.max_queens
+                )
+                if key == CREEP_POLICY and len(self.creep_queen_tags) < max_queens:
                     priorities.append(QueenRoles.Creep)
                 elif (
-                    key == DEFENCE_POLICY
-                    and len(self.defence_queen_tags) < max_queens
+                    key == DEFENCE_POLICY and len(self.defence_queen_tags) < max_queens
                 ):
                     priorities.append(QueenRoles.Defence)
                 elif key == INJECT_POLICY and len(self.inject_targets) < min(
@@ -196,7 +196,8 @@ class Queens:
                 "should_tumors_block_expansions", False
             ),
             creep_targets=cq_policy.get(
-                "creep_targets", self._path_expansion_distances(),
+                "creep_targets",
+                self._path_expansion_distances(),
             ),
             spread_style=cq_policy.get("spread_style", "targeted"),  # targeted
             rally_point=cq_policy.get(
@@ -206,10 +207,12 @@ class Queens:
                 ),
             ),
             target_perc_coverage=cq_policy.get(
-                "target_perc_coverage", 75.0,
+                "target_perc_coverage",
+                75.0,
             ),
             first_tumor_position=cq_policy.get(
-                "first_tumor_position", None,
+                "first_tumor_position",
+                None,
             ),
         )
         defence_queen_policy = DefenceQueen(
@@ -303,7 +306,9 @@ class Queens:
                     self._draw_on_world(queen.position, f"INJECT {queen.tag}")
 
         tumors: Units = self.bot.structures.filter(
-            lambda s: s.type_id == UnitID.CREEPTUMORBURROWED and s.tag not in self.creep.used_tumors)
+            lambda s: s.type_id == UnitID.CREEPTUMORBURROWED
+            and s.tag not in self.creep.used_tumors
+        )
         if tumors:
             for tumor in tumors:
                 self._draw_on_world(tumor.position, f"TUMOR")
@@ -311,5 +316,8 @@ class Queens:
     def _draw_on_world(self, pos: Point2, text: str) -> None:
         z_height: float = self.bot.get_terrain_z_height(pos)
         self.bot.client.debug_text_world(
-            text, Point3((pos.x, pos.y, z_height)), color=(0, 255, 255), size=12,
+            text,
+            Point3((pos.x, pos.y, z_height)),
+            color=(0, 255, 255),
+            size=12,
         )

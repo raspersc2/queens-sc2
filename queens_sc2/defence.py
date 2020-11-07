@@ -1,20 +1,16 @@
-from typing import Optional
-
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
-from sc2.ids.unit_typeid import UnitTypeId as UnitID
-from sc2.position import Point2
 from sc2.unit import Unit
-from sc2.units import Units
+
 from queens_sc2.base_unit import BaseUnit
-from queens_sc2.policy import DefenceQueen
+from queens_sc2.policy import Policy
 
 
 class Defence(BaseUnit):
-    def __init__(self, bot: BotAI, defence_policy: DefenceQueen):
+    def __init__(self, bot: BotAI, defence_policy: Policy):
         super().__init__(bot)
         self.last_transfusion: float = 0.0
-        self.policy: DefenceQueen = defence_policy
+        self.policy: Policy = defence_policy
         self.used_transfuse_this_step: bool = False
 
     async def handle_unit(self, unit: Unit) -> None:
@@ -36,5 +32,5 @@ class Defence(BaseUnit):
         elif unit.distance_to(self.policy.rally_point) > 12:
             unit.move(self.policy.rally_point)
 
-    def update_policy(self, policy: DefenceQueen) -> None:
+    def update_policy(self, policy: Policy) -> None:
         self.policy = policy

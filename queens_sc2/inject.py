@@ -1,9 +1,8 @@
-from typing import List
-
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
 from sc2.unit import Unit
 from sc2.units import Units
+
 from queens_sc2.base_unit import BaseUnit
 from queens_sc2.policy import Policy
 
@@ -22,10 +21,7 @@ class Inject(BaseUnit):
             elif self.policy.defend_against_ground and self.enemy_ground_threats:
                 await self.do_queen_micro(unit, self.enemy_ground_threats)
             else:
-                abilities: List[AbilityId] = await self.bot.get_available_abilities(
-                    unit
-                )
-                if AbilityId.EFFECT_INJECTLARVA in abilities:
+                if unit.energy >= 25:
                     unit(AbilityId.EFFECT_INJECTLARVA, th)
                 # regardless of policy, chase away enemy close to th
                 # but if queen gets too far away, walk back to th

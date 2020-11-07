@@ -15,6 +15,7 @@ class ZergBot(BotAI):
     Example ZergBot, expands and then only builds queens
     Demonstrates the sc2-queens lib in action
     """
+
     mid_game_queen_policy: Dict
     early_game_queen_policy: Dict
     natural_pos: Point2
@@ -55,7 +56,9 @@ class ZergBot(BotAI):
                 "priority": 2,
                 "max": 4,
                 "defend_against_ground": True,
-                "first_tumor_position": self.start_location.towards(self.main_base_ramp.top_center, 5)
+                "first_tumor_position": self.start_location.towards(
+                    self.main_base_ramp.top_center, 5
+                ),
             },
             "inject_queens": {"active": True, "priority": False, "max": 2},
         }
@@ -137,8 +140,8 @@ class ZergBot(BotAI):
 
             # drones and overlords from larva
             if self.larva:
-                num_workers: int = self.workers.amount + self.already_pending(
-                    UnitID.DRONE
+                num_workers: int = int(
+                    self.workers.amount + self.already_pending(UnitID.DRONE)
                 )
                 # overlords
                 if self.need_overlord and self.can_afford(UnitID.OVERLORD):
@@ -255,8 +258,8 @@ class ZergBot(BotAI):
             worker.build(UnitID.SPAWNINGPOOL, pos)
 
     async def _find_natural(self) -> Point2:
-        min_distance: float = 9999
-        pos: Point2 = None
+        min_distance: float = 9999.0
+        pos: Point2 = Point2((0, 0))
         for el in self.expansion_locations_list:
             if self.start_location.distance_to(el) < self.EXPANSION_GAP_THRESHOLD:
                 continue
