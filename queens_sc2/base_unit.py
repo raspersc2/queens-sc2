@@ -109,20 +109,34 @@ class BaseUnit(ABC):
     ) -> None:
         if not queen or not offensive_pos:
             return
-        enemy: Units = self.bot.enemy_units
+        enemy: Units = self.bot.enemy_units.exclude_type(
+            {UnitID.MULE, UnitID.EGG, UnitID.LARVA}
+        )
+        enemy_structures: Units = self.bot.enemy_structures
+        queens: Units = self.bot.units(UnitID.QUEEN)
+        own_close_queens: Units = queens.filter(lambda u: u.distance_to(queen) < 5)
         if enemy:
             in_range_enemies: Units = enemy.in_attack_range_of(queen)
-            if in_range_enemies:
-                if queen.weapon_cooldown == 0:
+            in_range_structures: Units = enemy_structures.in_attack_range_of(queen)
+            if queen.weapon_cooldown == 0:
+                if in_range_enemies:
                     lowest_hp: Unit = min(
                         in_range_enemies, key=lambda e: (e.health + e.shield, e.tag)
                     )
                     queen.attack(lowest_hp)
+                elif in_range_structures:
+                    queen.attack(in_range_structures.closest_to(queen))
                 else:
-                    closest_enemy: Unit = in_range_enemies.closest_to(queen)
-                    queen.move(queen.position.towards(closest_enemy, 2))
+                    # try to keep queens together
+                    if own_close_queens.amount <= 3:
+                        queen.move(queens.center)
+                    else:
+                        queen.move(offensive_pos)
             else:
-                queen.attack(enemy.closest_to(queen))
+                if own_close_queens.amount <= 3:
+                    queen.move(queens.center)
+                else:
+                    queen.move(offensive_pos)
         else:
             queen.attack(offensive_pos)
 

@@ -72,15 +72,14 @@ class Creep(BaseUnit):
             and not should_spread_creep
         ):
             await self.do_queen_micro(unit, ground_threats)
+        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
+            unit.move(self.policy.rally_point)
         elif (
             unit.energy >= 25
             and len(unit.orders) == 0
             and self.creep_coverage < self.policy.target_perc_coverage
         ):
             await self.spread_creep(unit)
-        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
-            unit.move(self.policy.rally_point)
-
         elif unit.distance_to(self.policy.rally_point) > 7:
             if len(unit.orders) > 0:
                 if unit.orders[0].ability.button_name != "CreepTumor":
