@@ -60,6 +60,7 @@ queen_policy: Dict = {
       "rally_point": Point2,
       "first_tumor_position": Optional[Point2],
       "prioritize_creep": Callable # prioritize over defending bases if energy is available?
+      "pass_own_threats": bool # if set to True, library wont calculate enemy near bases, you should pass air and ground threats to manage_queens() method
   },
   "defence_queens": {
       "active": bool,
@@ -69,14 +70,16 @@ queen_policy: Dict = {
       "defend_against_ground": bool,
       "attack_condition": Callable,
       "attack_target": Point2,
-      "rally_point": Point2
+      "rally_point": Point2,
+      "pass_own_threats": bool
   },
   "inject_queens": {
       "active": bool,
       "max_queens": int,
       "priority": Union[bool, int],
       "defend_against_air": bool,
-      "defend_against_ground": bool,},
+      "defend_against_ground": bool,
+      "pass_own_threats": bool},
 }
 ```
 
