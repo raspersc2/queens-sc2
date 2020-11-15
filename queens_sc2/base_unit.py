@@ -127,11 +127,7 @@ class BaseUnit(ABC):
                 elif in_range_structures:
                     queen.attack(in_range_structures.closest_to(queen))
                 else:
-                    # try to keep queens together
-                    if own_close_queens.amount <= 3:
-                        queen.move(queens.center)
-                    else:
-                        queen.move(offensive_pos)
+                    queen.move(offensive_pos)
             else:
                 if own_close_queens.amount <= 3:
                     queen.move(queens.center)
