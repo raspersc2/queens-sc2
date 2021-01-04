@@ -56,7 +56,7 @@ class BaseUnit(ABC):
                             UnitID.CHANGELINGZERGLING,
                             UnitID.CHANGELINGZERGLINGWINGS,
                         }
-                        and unit.distance_to(th) < 18
+                        and unit.position.distance_to(th) < 18
                     )
                 )
 
