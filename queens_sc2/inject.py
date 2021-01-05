@@ -46,6 +46,6 @@ class Inject(BaseUnit):
                     lambda enemy: enemy.position.distance_to(unit) < 10
                 ):
                     unit.attack(self.find_closest_enemy(unit, self.bot.enemy_units))
-
+                    
     def update_policy(self, policy: Policy) -> None:
         self.policy = policy
