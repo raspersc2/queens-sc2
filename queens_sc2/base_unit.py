@@ -1,7 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Union
+
+import numpy as np
+from scipy import spatial
 
 from sc2 import BotAI
+from sc2.constants import UNIT_COLOSSUS
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2
 from sc2.unit import Unit
@@ -29,7 +33,7 @@ class BaseUnit(ABC):
                         and not unit.is_hallucination
                         and unit.type_id
                         not in {UnitID.OVERLORD, UnitID.OVERSEER, UnitID.OBSERVER}
-                        and unit.distance_to(th) < 18
+                        and unit.position.distance_to(th) < 18
                     )
                 )
 
@@ -116,8 +120,10 @@ class BaseUnit(ABC):
         queens: Units = self.bot.units(UnitID.QUEEN)
         own_close_queens: Units = queens.filter(lambda u: u.distance_to(queen) < 5)
         if enemy:
-            in_range_enemies: Units = enemy.in_attack_range_of(queen)
-            in_range_structures: Units = enemy_structures.in_attack_range_of(queen)
+            in_range_enemies: Units = self.in_attack_range_of(queen, enemy)
+            in_range_structures: Units = self.in_attack_range_of(
+                queen, enemy_structures
+            )
             if queen.weapon_cooldown == 0:
                 if in_range_enemies:
                     lowest_hp: Unit = min(
@@ -125,7 +131,7 @@ class BaseUnit(ABC):
                     )
                     queen.attack(lowest_hp)
                 elif in_range_structures:
-                    queen.attack(in_range_structures.closest_to(queen))
+                    queen.attack(self.find_closest_enemy(queen, in_range_structures))
                 else:
                     queen.move(offensive_pos)
             else:
@@ -163,7 +169,7 @@ class BaseUnit(ABC):
 
     def position_near_enemy(self, pos: Point2) -> bool:
         close_enemy: Units = self.bot.enemy_units.filter(
-            lambda unit: unit.distance_to(pos) < 12
+            lambda unit: unit.position.distance_to(pos) < 12
             and unit.type_id
             not in {
                 UnitID.DRONE,
@@ -197,3 +203,70 @@ class BaseUnit(ABC):
             and unit.distance_to(pos) < 20
         )
         return True if close_townhalls else False
+
+    def find_closest_enemy(self, unit: Unit, enemies: Units) -> Optional[Unit]:
+        """
+        Find closest enemy because the built in python-sc2 version doesn't work with memory units.
+
+        @param unit:
+        @param enemies:
+        @return:
+        """
+        if not unit or not enemies:
+            return None
+
+        distances = spatial.distance.cdist(
+            np.array([e.position for e in enemies]),
+            np.array([unit.position]),
+            "sqeuclidean",
+        )
+
+        closest_enemy = min(
+            ((unit, dist) for unit, dist in zip(enemies, distances)),
+            key=lambda my_tuple: my_tuple[1],
+        )[0]
+
+        return closest_enemy
+
+    def in_attack_range_of(
+        self, unit: Unit, enemies: Units, bonus_distance: Union[int, float] = 0
+    ) -> Optional[Units]:
+        """
+        Get enemies in attack range of a given unit
+
+        @param unit:
+        @param enemies:
+        @param bonus_distance:
+        @return:
+        """
+        if not unit or not enemies:
+            return None
+
+        return enemies.filter(
+            lambda e: self.target_in_range(unit, e, bonus_distance=bonus_distance)
+        )
+
+    def target_in_range(
+        self, unit: Unit, target: Unit, bonus_distance: Union[int, float] = 0
+    ) -> bool:
+        """
+        Check if the target is in range. Includes the target's radius when calculating distance to target.
+
+        @param unit:
+        @param target:
+        @param bonus_distance:
+        @return:
+        """
+        if unit.can_attack_ground and not target.is_flying:
+            unit_attack_range = unit.ground_range
+        elif unit.can_attack_air and (
+            target.is_flying or target.type_id == UNIT_COLOSSUS
+        ):
+            unit_attack_range = unit.air_range
+        else:
+            return False
+
+        # noinspection PyProtectedMember
+        return self.bot._distance_pos_to_pos(unit.position, target.position) <= (
+            unit.radius + target.radius + unit_attack_range + bonus_distance
+        )
