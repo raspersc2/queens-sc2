@@ -42,8 +42,10 @@ class Inject(BaseUnit):
                 # but if queen gets too far away, walk back to th
                 elif unit.distance_to(th) > 7:
                     unit.move(th.position)
-                elif self.bot.enemy_units.closer_than(10, unit):
-                    unit.attack(self.bot.enemy_units.closest_to(unit))
+                elif self.bot.enemy_units.filter(
+                    lambda enemy: enemy.position.distance_to(unit) < 10
+                ):
+                    unit.attack(self.find_closest_enemy(unit, self.bot.enemy_units))
 
     def update_policy(self, policy: Policy) -> None:
         self.policy = policy
