@@ -72,7 +72,11 @@ class Creep(BaseUnit):
             and not should_spread_creep
         ):
             await self.do_queen_micro(unit, ground_threats)
-        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
+        elif self.bot.enemy_units and self.bot.enemy_units.filter(
+            # custom filter to replace in_attack_range_of so that it can be used with memory units
+            lambda enemy: enemy.position.distance_to(unit)
+            < max(unit.air_range, unit.ground_range)
+        ):
             unit.move(self.policy.rally_point)
         elif (
             unit.energy >= 25
