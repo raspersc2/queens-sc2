@@ -106,7 +106,8 @@ class BaseUnit(ABC):
                 queen.move(closest_enemy.position.towards(queen, distance))
 
         else:
-            queen.attack(enemy.center)
+            target = self.find_closest_enemy(queen, enemy)
+            queen.attack(target)
 
     async def do_queen_offensive_micro(
         self, queen: Unit, offensive_pos: Point2
