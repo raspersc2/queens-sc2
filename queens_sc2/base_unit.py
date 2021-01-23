@@ -90,7 +90,7 @@ class BaseUnit(ABC):
     async def do_queen_micro(self, queen: Unit, enemy: Units) -> None:
         if not queen or not enemy:
             return
-        in_range_enemies: Units = enemy.in_attack_range_of(queen)
+        in_range_enemies: Units = self.in_attack_range_of(queen, enemy)
         if in_range_enemies:
             if queen.weapon_cooldown == 0:
                 lowest_hp: Unit = min(
