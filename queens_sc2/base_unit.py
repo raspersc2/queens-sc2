@@ -98,7 +98,7 @@ class BaseUnit(ABC):
                 )
                 queen.attack(lowest_hp)
             else:
-                closest_enemy: Unit = in_range_enemies.closest_to(queen)
+                closest_enemy: Unit = self.find_closest_enemy(queen, in_range_enemies)
                 distance: float = (
                     queen.ground_range + queen.radius + closest_enemy.radius
                 )
