@@ -146,7 +146,7 @@ class BaseUnit(ABC):
             queen.attack(offensive_pos)
 
     def get_transfuse_target(self, from_pos: Point2) -> Optional[Unit]:
-        transfuse_targets: Units = self.bot.units.filter(
+        transfuse_targets: Units = self.bot.all_own_units.filter(
             lambda unit: unit.health_percentage < 0.4
             and unit.type_id
             in {
@@ -160,12 +160,10 @@ class BaseUnit(ABC):
                 UnitID.ROACH,
                 UnitID.SWARMHOSTMP,
                 UnitID.ULTRALISK,
+                UnitID.SPINECRAWLER,
+                UnitID.SPORECRAWLER,
             }
             and unit.distance_to(from_pos) < 11
-        ) + self.bot.structures.filter(
-            lambda s: s.health_percentage < 0.4
-            and s.type_id in {UnitID.SPINECRAWLER, UnitID.SPORECRAWLER}
-            and s.distance_to(from_pos) < 11
         )
 
         return transfuse_targets.closest_to(from_pos) if transfuse_targets else None
