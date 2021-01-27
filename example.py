@@ -24,7 +24,7 @@ class ZergBot(BotAI):
     def __init__(self) -> None:
         super().__init__()
         # SET TO FALSE BEFORE UPLOADING TO LADDER!
-        self.debug: bool = True
+        self.debug: bool = False
         self.basic_bo: List[UnitID] = [
             UnitID.OVERLORD,
             UnitID.DRONE,
@@ -49,6 +49,7 @@ class ZergBot(BotAI):
             drone.gather(closest_patch)
 
     async def on_start(self) -> None:
+        self.client.raw_affects_selection = True
         self.natural_pos = await self._find_natural()
         self.early_game_queen_policy = {
             "creep_queens": {
@@ -94,7 +95,7 @@ class ZergBot(BotAI):
                 "defend_against_ground": False,
             },
             "defence_queens": {
-                "attack_condition": lambda: self.units(UnitID.QUEEN).amount > 30,
+                "attack_condition": lambda: self.units(UnitID.QUEEN).amount > 20,
             },
             "inject_queens": {"active": False, "max": 0},
         }
@@ -182,30 +183,8 @@ class ZergBot(BotAI):
                 await self._build_pool()
 
             # expand
-            if (
-                self.can_afford(UnitID.HATCHERY)
-                and not self.already_pending(UnitID.HATCHERY)
-                and self.time > 160
-            ):
+            if self.can_afford(UnitID.HATCHERY) and self.time > 160:
                 await self.expand_now(max_distance=0)
-
-            # spines/spores if minerals too high
-            if self.minerals > 400 and self.structures(UnitID.SPAWNINGPOOL).ready:
-                structure: UnitID = random.choices(
-                    [UnitID.SPINECRAWLER, UnitID.SPORECRAWLER], weights=[0.7, 0.3], k=1
-                )[0]
-                # we are dumb, pick random pos on map
-                x = random.choice(
-                    range(0, self.game_info.placement_grid.data_numpy.shape[1])
-                )
-                y = random.choice(
-                    range(0, self.game_info.placement_grid.data_numpy.shape[0])
-                )
-                # let sc2 library do the magic of finding a placement from random pos
-                pos: Point2 = await self.find_placement(structure, Point2((x, y)))
-                if pos and not self.queens.creep.position_blocks_expansion(pos):
-                    worker: Unit = self._select_worker(pos)
-                    worker.build(structure, pos)
 
     def adjust_attack_target(self) -> None:
         enemy_units: Units = self.enemy_units.filter(

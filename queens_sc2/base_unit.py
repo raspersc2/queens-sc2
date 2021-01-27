@@ -12,6 +12,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from queens_sc2.policy import Policy
+from queens_sc2.cache import property_cache_once_per_frame
 
 
 class BaseUnit(ABC):
@@ -20,57 +21,57 @@ class BaseUnit(ABC):
     def __init__(self, bot: BotAI):
         self.bot: BotAI = bot
 
-    @property
+    @property_cache_once_per_frame
     def enemy_air_threats(self) -> Units:
         air_threats: Units = Units([], self.bot)
-        ready_townhalls: Units = self.bot.townhalls.ready
-
-        if ready_townhalls:
-            for th in ready_townhalls:
-                air_threats.extend(
-                    self.bot.enemy_units.filter(
-                        lambda unit: unit.is_flying
-                        and not unit.is_hallucination
-                        and unit.type_id
-                        not in {UnitID.OVERLORD, UnitID.OVERSEER, UnitID.OBSERVER}
-                        and unit.position.distance_to(th) < 18
+        air_units: Units = self.bot.enemy_units.flying
+        threats: Units = Units([], self.bot)
+        if air_units:
+            for th in self.bot.townhalls.ready:
+                closest_enemy: Unit = self.find_closest_enemy(th, air_units)
+                if closest_enemy.position.distance_to(th) < 18:
+                    air_threats.extend(
+                        self.bot.enemy_units.filter(
+                            lambda unit: unit.is_flying
+                            and not unit.is_hallucination
+                            and unit.type_id
+                            not in {UnitID.OVERLORD, UnitID.OVERSEER, UnitID.OBSERVER}
+                        )
                     )
-                )
+            threats = air_threats
+        return threats
 
-        return air_threats
-
-    @property
+    @property_cache_once_per_frame
     def enemy_ground_threats(self) -> Units:
         ground_threats: Units = Units([], self.bot)
-        ready_townhalls: Units = self.bot.townhalls.ready
-
-        if ready_townhalls:
-            for th in ready_townhalls:
-                ground_threats.extend(
-                    self.bot.enemy_units.filter(
-                        lambda unit: not unit.is_flying
-                        and not unit.is_hallucination
-                        and not unit.is_burrowed
-                        and unit.type_id
-                        not in {
-                            UnitID.CHANGELING,
-                            UnitID.CHANGELINGMARINE,
-                            UnitID.CHANGELINGMARINESHIELD,
-                            UnitID.CHANGELINGZEALOT,
-                            UnitID.CHANGELINGZERGLING,
-                            UnitID.CHANGELINGZERGLINGWINGS,
-                        }
-                        and unit.position.distance_to(th) < 18
+        ground_units: Units = self.bot.enemy_units.not_flying
+        threats: Units = Units([], self.bot)
+        if ground_units:
+            for th in self.bot.townhalls.ready:
+                closest_enemy: Unit = self.find_closest_enemy(th, ground_units)
+                if closest_enemy.position.distance_to(th) < 18:
+                    ground_threats.extend(
+                        self.bot.enemy_units.filter(
+                            lambda unit: not unit.is_flying
+                            and not unit.is_hallucination
+                            and not unit.is_burrowed
+                            and unit.type_id
+                            not in {
+                                UnitID.CHANGELING,
+                                UnitID.CHANGELINGMARINE,
+                                UnitID.CHANGELINGMARINESHIELD,
+                                UnitID.CHANGELINGZEALOT,
+                                UnitID.CHANGELINGZERGLING,
+                                UnitID.CHANGELINGZERGLINGWINGS,
+                            }
+                        )
                     )
-                )
+            threats = ground_threats
+        return threats
 
-        return ground_threats
-
-    @property
-    def priority_enemy_units(self) -> Optional[Units]:
+    def get_priority_enemy_units(self, enemy_threats: Units) -> Optional[Units]:
         if len(self.policy.priority_defence_list) != 0:
-            all_threats: Units = self.enemy_air_threats + self.enemy_ground_threats
-            priority_threats: Units = all_threats(self.policy.priority_defence_list)
+            priority_threats: Units = enemy_threats(self.policy.priority_defence_list)
             return priority_threats
 
     @abstractmethod
@@ -79,6 +80,7 @@ class BaseUnit(ABC):
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
         unit: Unit,
+        priority_enemy_units: Units,
         th_tag: int,
     ) -> None:
         pass

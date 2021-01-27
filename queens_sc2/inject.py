@@ -17,24 +17,19 @@ class Inject(BaseUnit):
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
         unit: Unit,
+        priority_enemy_units: Units,
         th_tag: int,
     ) -> None:
-        if self.policy.pass_own_threats:
-            air_threats: Units = air_threats_near_bases
-            ground_threats: Units = ground_threats_near_bases
-        else:
-            air_threats: Units = self.enemy_air_threats
-            ground_threats: Units = self.enemy_ground_threats
 
         ths: Units = self.bot.townhalls.ready.tags_in([th_tag])
         if ths:
             th: Unit = ths.first
-            if self.priority_enemy_units:
-                await self.do_queen_micro(unit, self.priority_enemy_units)
-            elif self.policy.defend_against_air and air_threats:
-                await self.do_queen_micro(unit, air_threats)
-            elif self.policy.defend_against_ground and ground_threats:
-                await self.do_queen_micro(unit, ground_threats)
+            if priority_enemy_units:
+                await self.do_queen_micro(unit, priority_enemy_units)
+            elif self.policy.defend_against_air and air_threats_near_bases:
+                await self.do_queen_micro(unit, air_threats_near_bases)
+            elif self.policy.defend_against_ground and ground_threats_near_bases:
+                await self.do_queen_micro(unit, ground_threats_near_bases)
             else:
                 if unit.energy >= 25:
                     unit(AbilityId.EFFECT_INJECTLARVA, th)

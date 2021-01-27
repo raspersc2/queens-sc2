@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 
 from sc2 import BotAI
+from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2, Point3
 from sc2.unit import Unit
@@ -28,6 +29,7 @@ class Queens:
         self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY])
         self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY])
         self.creep.update_creep_map()
+        self.used_transfuse_this_step: bool = False
 
     async def manage_queens(
         self,
@@ -36,6 +38,18 @@ class Queens:
         ground_threats_near_bases: Optional[Units] = None,
         queens: Optional[Units] = None,
     ) -> None:
+        self.used_transfuse_this_step: bool = False
+        if self.defence.policy.pass_own_threats:
+            air_threats: Units = air_threats_near_bases
+            ground_threats: Units = ground_threats_near_bases
+        else:
+            air_threats: Units = self.defence.enemy_air_threats
+            ground_threats: Units = self.defence.enemy_ground_threats
+
+        priority_enemy_units: Units = self.defence.get_priority_enemy_units(
+            air_threats + ground_threats
+        )
+
         if queens is None:
             queens: Units = self.bot.units(UnitID.QUEEN)
 
@@ -52,20 +66,35 @@ class Queens:
 
         for queen in queens:
             self._assign_queen_role(queen)
+            # if any queen has more than 50 energy, she may transfuse
+            if queen.energy >= 50 and not self.used_transfuse_this_step:
+                transfuse_target: Unit = self.defence.get_transfuse_target(
+                    queen.position
+                )
+                if (
+                    transfuse_target
+                    and transfuse_target is not queen
+                    and not self.used_transfuse_this_step
+                ):
+                    queen(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
+                    self.used_transfuse_this_step = True
+                    continue
+
             if queen.tag in self.inject_targets.keys():
                 await self.inject.handle_unit(
-                    air_threats_near_bases,
-                    ground_threats_near_bases,
+                    air_threats,
+                    ground_threats,
                     queen,
+                    priority_enemy_units,
                     self.inject_targets[queen.tag],
                 )
             elif queen.tag in self.creep_queen_tags:
                 await self.creep.handle_unit(
-                    air_threats_near_bases, ground_threats_near_bases, queen
+                    air_threats, ground_threats, queen, priority_enemy_units
                 )
             elif queen.tag in self.defence_queen_tags:
                 await self.defence.handle_unit(
-                    air_threats_near_bases, ground_threats_near_bases, queen
+                    air_threats, ground_threats, queen, priority_enemy_units
                 )
         if self.debug:
             await self._draw_debug_info()
@@ -172,15 +201,14 @@ class Queens:
         """
         Checks if we know about queen, if not assign a role
         """
-        queen_tag: List[int] = [
-            tag
-            for tag in [
-                self.creep_queen_tags,
-                self.defence_queen_tags,
-                self.inject_targets.keys(),
-            ]
-            if queen.tag in tag
-        ]
+        queen_tag = []
+        for tag in [
+            self.creep_queen_tags,
+            self.defence_queen_tags,
+            self.inject_targets.keys(),
+        ]:
+            if queen.tag in tag:
+                queen_tag.append(tag)
         return len(queen_tag) > 0
 
     def _read_queen_policy(self, **queen_policy: Dict) -> Dict[str, Policy]:

@@ -47,31 +47,27 @@ class Creep(BaseUnit):
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
         unit: Unit,
+        priority_enemy_units: Units,
         th_tag: int = 0,
     ) -> None:
-        if self.policy.pass_own_threats:
-            air_threats: Units = air_threats_near_bases
-            ground_threats: Units = ground_threats_near_bases
-        else:
-            air_threats: Units = self.enemy_air_threats
-            ground_threats: Units = self.enemy_ground_threats
 
         should_spread_creep: bool = self._check_queen_can_spread_creep(unit)
         self.creep_targets = self.policy.creep_targets
-        transfuse_target: Unit = self.get_transfuse_target(unit.position)
-        # allow transfuse if energy has built up
-        if unit.energy >= 50 and transfuse_target and transfuse_target is not unit:
-            unit(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
-        elif self.priority_enemy_units:
-            await self.do_queen_micro(unit, self.priority_enemy_units)
-        elif self.policy.defend_against_air and air_threats and not should_spread_creep:
-            await self.do_queen_micro(unit, air_threats)
+
+        if priority_enemy_units:
+            await self.do_queen_micro(unit, priority_enemy_units)
         elif (
-            self.policy.defend_against_ground
-            and ground_threats
+            self.policy.defend_against_air
+            and air_threats_near_bases
             and not should_spread_creep
         ):
-            await self.do_queen_micro(unit, ground_threats)
+            await self.do_queen_micro(unit, air_threats_near_bases)
+        elif (
+            self.policy.defend_against_ground
+            and ground_threats_near_bases
+            and not should_spread_creep
+        ):
+            await self.do_queen_micro(unit, ground_threats_near_bases)
         elif self.bot.enemy_units and self.bot.enemy_units.filter(
             # custom filter to replace in_attack_range_of so that it can be used with memory units
             lambda enemy: enemy.position.distance_to(unit)
