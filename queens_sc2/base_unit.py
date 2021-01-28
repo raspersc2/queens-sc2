@@ -95,10 +95,8 @@ class BaseUnit(ABC):
         in_range_enemies: Units = self.in_attack_range_of(queen, enemy)
         if in_range_enemies:
             if queen.weapon_cooldown == 0:
-                lowest_hp: Unit = min(
-                    in_range_enemies, key=lambda e: (e.health + e.shield, e.tag)
-                )
-                queen.attack(lowest_hp)
+                target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
+                queen.attack(target)
             else:
                 closest_enemy: Unit = self.find_closest_enemy(queen, in_range_enemies)
                 distance: float = (
@@ -129,10 +127,10 @@ class BaseUnit(ABC):
             )
             if queen.weapon_cooldown == 0:
                 if in_range_enemies:
-                    lowest_hp: Unit = min(
-                        in_range_enemies, key=lambda e: (e.health + e.shield, e.tag)
+                    target: Unit = self._get_target_from_in_range_enemies(
+                        in_range_enemies
                     )
-                    queen.attack(lowest_hp)
+                    queen.attack(target)
                 elif in_range_structures:
                     queen.attack(self.find_closest_enemy(queen, in_range_structures))
                 else:
@@ -144,6 +142,19 @@ class BaseUnit(ABC):
                     queen.move(offensive_pos)
         else:
             queen.attack(offensive_pos)
+
+    def _get_target_from_in_range_enemies(self, in_range_enemies: Units) -> Unit:
+        if in_range_enemies.flying:
+            lowest_hp: Unit = min(
+                in_range_enemies.flying,
+                key=lambda e: (e.health + e.shield, e.tag),
+            )
+        else:
+            lowest_hp: Unit = min(
+                in_range_enemies,
+                key=lambda e: (e.health + e.shield, e.tag),
+            )
+        return lowest_hp
 
     def get_transfuse_target(self, from_pos: Point2) -> Optional[Unit]:
         transfuse_targets: Units = self.bot.all_own_units.filter(
