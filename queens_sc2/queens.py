@@ -29,7 +29,6 @@ class Queens:
         self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY])
         self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY])
         self.creep.update_creep_map()
-        self.used_transfuse_this_step: bool = False
 
     async def manage_queens(
         self,
@@ -67,17 +66,12 @@ class Queens:
         for queen in queens:
             self._assign_queen_role(queen)
             # if any queen has more than 50 energy, she may transfuse
-            if queen.energy >= 50 and not self.used_transfuse_this_step:
+            if queen.energy >= 50:
                 transfuse_target: Unit = self.defence.get_transfuse_target(
                     queen.position
                 )
-                if (
-                    transfuse_target
-                    and transfuse_target is not queen
-                    and not self.used_transfuse_this_step
-                ):
+                if transfuse_target and transfuse_target is not queen:
                     queen(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
-                    self.used_transfuse_this_step = True
                     continue
 
             if queen.tag in self.inject_targets.keys():
