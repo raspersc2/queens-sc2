@@ -30,6 +30,7 @@ class Creep(BaseUnit):
         ).transpose()
         self.used_tumors: Set[int] = set()
         self.first_tumor: bool = True
+        self.first_tumor_retry_attempts: int = 0
 
     @property
     @functools.lru_cache()
@@ -99,7 +100,10 @@ class Creep(BaseUnit):
 
         if self.first_tumor and self.policy.first_tumor_position:
             queen(AbilityId.BUILD_CREEPTUMOR_QUEEN, self.policy.first_tumor_position)
-            self.first_tumor = False
+            # retry a few times, sometimes queen gets blocked when spawning
+            if self.first_tumor_retry_attempts > 5:
+                self.first_tumor = False
+            self.first_tumor_retry_attempts += 1
             return
 
         should_lay_tumor: bool = True
