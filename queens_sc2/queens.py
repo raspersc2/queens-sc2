@@ -18,13 +18,13 @@ INJECT_POLICY: str = "inject_policy"
 
 
 class Queens:
-    def __init__(self, bot: BotAI, debug: bool = False, **queen_policy: Dict):
+    def __init__(self, bot: BotAI, debug: bool = False, queen_policy: Dict = None):
         self.bot: BotAI = bot
         self.debug: bool = debug
         self.creep_queen_tags: List[int] = []
         self.defence_queen_tags: List[int] = []
         self.inject_targets: Dict[int, int] = {}
-        self.policies: Dict[str, Policy] = self._read_queen_policy(**queen_policy)
+        self.policies: Dict[str, Policy] = self._read_queen_policy(queen_policy)
         self.creep: Creep = Creep(bot, self.policies[CREEP_POLICY])
         self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY])
         self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY])
@@ -37,7 +37,6 @@ class Queens:
         ground_threats_near_bases: Optional[Units] = None,
         queens: Optional[Units] = None,
     ) -> None:
-        self.used_transfuse_this_step: bool = False
         if self.defence.policy.pass_own_threats:
             air_threats: Units = air_threats_near_bases
             ground_threats: Units = ground_threats_near_bases
@@ -113,8 +112,8 @@ class Queens:
                 if queens:
                     self._assign_queen_role(queens.first)
 
-    def set_new_policy(self, reset_roles: bool = True, **queen_policy) -> None:
-        self.policies = self._read_queen_policy(**queen_policy)
+    def set_new_policy(self, queen_policy, reset_roles: bool = True) -> None:
+        self.policies = self._read_queen_policy(queen_policy)
         if reset_roles:
             self.creep_queen_tags = []
             self.defence_queen_tags = []
@@ -205,7 +204,7 @@ class Queens:
                 queen_tag.append(tag)
         return len(queen_tag) > 0
 
-    def _read_queen_policy(self, **queen_policy: Dict) -> Dict[str, Policy]:
+    def _read_queen_policy(self, queen_policy: Dict) -> Dict[str, Policy]:
         """
         Read the queen policy the user passed in, add default
         params for missing values
@@ -215,9 +214,11 @@ class Queens:
         :return: new policy with default params for missing values
         :rtype: Dict
         """
-        cq_policy = queen_policy.get("creep_queens", {})
-        dq_policy = queen_policy.get("defence_queens", {})
-        iq_policy = queen_policy.get("inject_queens", {})
+        # handle user not passing in a policy
+        _queen_policy: Dict = queen_policy if queen_policy else {}
+        cq_policy = _queen_policy.get("creep_queens", {})
+        dq_policy = _queen_policy.get("defence_queens", {})
+        iq_policy = _queen_policy.get("inject_queens", {})
 
         creep_queen_policy = CreepQueen(
             active=cq_policy.get("active", True),

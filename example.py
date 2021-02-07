@@ -100,8 +100,9 @@ class ZergBot(BotAI):
             "inject_queens": {"active": False, "max": 0},
         }
         # override defaults in the queens_sc2 lib by passing a policy:
-        self.queens = Queens(self, debug=self.debug, **self.early_game_queen_policy)
-        self.client.game_step = 6
+        self.queens = Queens(
+            self, debug=self.debug, queen_policy=self.early_game_queen_policy
+        )
 
     async def on_unit_destroyed(self, unit_tag: int):
         # checks if unit is a queen or th, lib then handles appropriately
@@ -113,9 +114,9 @@ class ZergBot(BotAI):
         # queens: Units = self.units(UnitID.QUEEN).tags_in(self.sc2_queen_tags)
         await self.queens.manage_queens(iteration)
         # can repurpose queens by passing a new policy
-        if not self.switched_queen_policy and self.time > 630:
+        if not self.switched_queen_policy and self.time > 480:
             # adjust queen policy, allow stuck tumors to escape
-            self.queens.set_new_policy(reset_roles=True, **self.mid_game_queen_policy)
+            self.queens.set_new_policy(self.mid_game_queen_policy)
             self.switched_queen_policy = True
 
         # basic bot that only builds queens
