@@ -100,7 +100,7 @@ async def on_start(self) -> None:
     "inject_queens": {"active": True, "priority": False, "max": 2},
   }
   
-  self.queens = Queens(self, **early_game_queen_policy)
+  self.queens = Queens(self, early_game_queen_policy)
 ```
 
 You can pass new policies on the fly with the `set_new_policy` method:
@@ -117,7 +117,7 @@ mid_game_queen_policy: Dict = {
     },
     "inject_queens": {"active": False, "max": 0},
 }
-self.queens.set_new_policy(reset_roles=True, **mid_game_queen_policy)
+self.queens.set_new_policy(queen_policy=mid_game_queen_policy, reset_roles=True)
 ```
 
 ### I only want creep spread

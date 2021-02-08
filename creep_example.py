@@ -52,13 +52,15 @@ class ZergBot(BotAI):
                 "max": self.max_creep_queens,
             },
             "inject_queens": {"active": False},
-            "defence_queens": {"active": False}
+            "defence_queens": {"active": False},
         }
 
     async def on_start(self) -> None:
         self.natural_pos = await self._find_natural()
         # override defaults in the queens_sc2 lib by passing a policy:
-        self.queens = Queens(self, debug=self.debug, **self.creep_queen_policy)
+        self.queens = Queens(
+            self, debug=self.debug, queen_policy=self.creep_queen_policy
+        )
         self.client.game_step = 8
 
     async def on_unit_destroyed(self, unit_tag: int):
@@ -67,7 +69,6 @@ class ZergBot(BotAI):
         # we need to handle our own selection of creep queens in this example
         if unit_tag in self.creep_queen_tags:
             self.creep_queen_tags.remove(unit_tag)
-
 
     async def on_step(self, iteration: int) -> None:
         queens: Units = self.units(UnitID.QUEEN)
@@ -97,22 +98,22 @@ class ZergBot(BotAI):
         if self.supply_cap < 200:
             # supply blocked / overlord killed, ok to get extra overlords
             if (
-                    self.supply_left <= 0
-                    and self.supply_used >= 28
-                    and self.already_pending(UnitID.OVERLORD)
-                    < (self.townhalls.ready.amount + 1)
+                self.supply_left <= 0
+                and self.supply_used >= 28
+                and self.already_pending(UnitID.OVERLORD)
+                < (self.townhalls.ready.amount + 1)
             ):
                 return True
             # just one at a time at low supply counts
             elif (
-                    40 > self.supply_used >= 13
-                    and self.supply_left < 3
-                    and self.already_pending(UnitID.OVERLORD) < 1
+                40 > self.supply_used >= 13
+                and self.supply_left < 3
+                and self.already_pending(UnitID.OVERLORD) < 1
             ):
                 return True
             # overlord production scales up depending on bases taken
             elif self.supply_left < 3 * self.townhalls.amount and self.already_pending(
-                    UnitID.OVERLORD
+                UnitID.OVERLORD
             ) < (self.townhalls.ready.amount - 1):
                 return True
         return False
@@ -126,9 +127,9 @@ class ZergBot(BotAI):
         else:
             # queen production
             if (
-                    self.structures(UnitID.SPAWNINGPOOL).ready
-                    and self.can_afford(UnitID.QUEEN)
-                    and self.townhalls.idle
+                self.structures(UnitID.SPAWNINGPOOL).ready
+                and self.can_afford(UnitID.QUEEN)
+                and self.townhalls.idle
             ):
                 self.townhalls.idle.first.train(UnitID.QUEEN)
 
@@ -146,25 +147,25 @@ class ZergBot(BotAI):
 
             # ensure there is a spawning pool
             if not (
-                    self.structures(UnitID.SPAWNINGPOOL)
-                    or self.already_pending(UnitID.SPAWNINGPOOL)
+                self.structures(UnitID.SPAWNINGPOOL)
+                or self.already_pending(UnitID.SPAWNINGPOOL)
             ) and self.can_afford(UnitID.SPAWNINGPOOL):
                 await self._build_pool()
 
             # expand
             if (
-                    self.can_afford(UnitID.HATCHERY)
-                    and not self.already_pending(UnitID.HATCHERY)
-                    and self.time > 160
+                self.can_afford(UnitID.HATCHERY)
+                and not self.already_pending(UnitID.HATCHERY)
+                and self.time > 160
             ):
                 await self.expand_now(max_distance=0)
 
     async def do_build_order(self) -> None:
         current_step: UnitID = self.basic_bo[self.bo_step]
         if (
-                current_step in (UnitID.DRONE, UnitID.OVERLORD)
-                and self.larva
-                and self.can_afford(current_step)
+            current_step in (UnitID.DRONE, UnitID.OVERLORD)
+            and self.larva
+            and self.can_afford(current_step)
         ):
             self.larva.first.train(current_step)
             self.bo_step += 1
@@ -185,9 +186,9 @@ class ZergBot(BotAI):
                     self.bo_step += 1
 
         elif (
-                current_step == UnitID.SPAWNINGPOOL
-                and self.can_afford(UnitID.SPAWNINGPOOL)
-                and self.workers
+            current_step == UnitID.SPAWNINGPOOL
+            and self.can_afford(UnitID.SPAWNINGPOOL)
+            and self.workers
         ):
             await self._build_pool()
             self.bo_step += 1
