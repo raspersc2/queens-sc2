@@ -49,7 +49,7 @@ To get the most out of this library, a custom queen policy can be passed to the 
 queen_policy: Dict = {
   "creep_queens": {
       "active": bool,
-      "max_queens": int,
+      "max": int,
       "priority": Union[bool, int],
       "defend_against_air": bool,
       "defend_against_ground": bool,
@@ -65,7 +65,7 @@ queen_policy: Dict = {
   },
   "defence_queens": {
       "active": bool,
-      "max_queens": int,
+      "max": int,
       "priority": Union[bool, int],
       "defend_against_air": bool,
       "defend_against_ground": bool,
@@ -77,7 +77,7 @@ queen_policy: Dict = {
   },
   "inject_queens": {
       "active": bool,
-      "max_queens": int,
+      "max": int,
       "priority": Union[bool, int],
       "defend_against_air": bool,
       "defend_against_ground": bool,
