@@ -1,4 +1,5 @@
 from sc2 import BotAI
+from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
@@ -31,6 +32,12 @@ class Defence(BaseUnit):
             await self.do_queen_micro(unit, air_threats_near_bases)
         elif unit.distance_to(self.policy.rally_point) > 12:
             unit.move(self.policy.rally_point)
+
+    def set_attack_target(self, target: Point2) -> None:
+        """
+        Set an attack target if defence queens are going to be offensive
+        """
+        self.policy.attack_target = target
 
     def update_policy(self, policy: Policy) -> None:
         self.policy = policy

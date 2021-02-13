@@ -124,7 +124,10 @@ class Queens:
         self.inject.update_policy(self.policies[INJECT_POLICY])
 
     def update_attack_target(self, attack_target: Point2) -> None:
-        self.defence.policy.attack_target = attack_target
+        self.defence.set_attack_target(attack_target)
+
+    def update_creep_targets(self, creep_targets: List[Point2]) -> None:
+        self.creep.set_creep_targets(creep_targets)
 
     def _assign_queen_role(self, queen: Unit) -> None:
         """

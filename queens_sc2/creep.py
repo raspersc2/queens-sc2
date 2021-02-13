@@ -94,6 +94,9 @@ class Creep(BaseUnit):
     def _check_queen_can_spread_creep(self, queen: Unit) -> bool:
         return queen.energy >= 25 and self.policy.prioritize_creep()
 
+    def set_creep_targets(self, creep_targets: List[Point2]) -> None:
+        self.policy.creep_targets = creep_targets
+
     async def spread_creep(self, queen: Unit) -> None:
         if self.creep_target_index >= len(self.creep_targets):
             self.creep_target_index = 0

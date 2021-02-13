@@ -55,7 +55,7 @@ queen_policy: Dict = {
       "defend_against_ground": bool,
       "distance_between_existing_tumors": int,
       "should_tumors_block_expansions": bool,
-      "creep_targets": List[Point2],
+      "creep_targets": List[Point2], # library will cycle through these locations
       "spread_style": str, # "targeted" is default, or "random"
       "rally_point": Point2,
       "first_tumor_position": Optional[Point2],
@@ -69,8 +69,8 @@ queen_policy: Dict = {
       "priority": Union[bool, int],
       "defend_against_air": bool,
       "defend_against_ground": bool,
-      "attack_condition": Callable,
-      "attack_target": Point2,
+      "attack_condition": Callable, # only if you intend for defend queens to turn offensive
+      "attack_target": Point2, # used by offensive defence queens, otherwise not required
       "rally_point": Point2,
       "pass_own_threats": bool,
       "priority_defence_list", set[UnitID]
@@ -120,11 +120,19 @@ mid_game_queen_policy: Dict = {
 self.queens.set_new_policy(queen_policy=mid_game_queen_policy, reset_roles=True)
 ```
 
+Attack target for offensive defence queens can be updated:
+```python
+self.queens.update_attack_target(self.enemy_start_locations[0])
+```
+
+Creep targets can also be updated with a new `List` of locations. (By default this is set to all expansion locations)
+```python
+# path should ideally contain no creep points
+self.queens.update_creep_targets(path_to_third_base)
+```
+
 ### I only want creep spread
 Check the example in `creep_example.py` which shows how to set a creep policy and manage seperate groups of queens.
-
-## Caveat
-Defence queen logic is generalized and should work well enough up to a certain level. However, the logic as to manage extra queens can be subjective depending on playstyle. A bot at an advanced level should write their own code for excess queens and perhaps then just set a policy for creep and inject queens.
 
 ## Contributing
 Pull requests are welcome, please submit an issue for feature requests or bug reports.

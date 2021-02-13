@@ -119,6 +119,10 @@ class ZergBot(BotAI):
             self.queens.set_new_policy(self.mid_game_queen_policy)
             self.switched_queen_policy = True
 
+        # can update creep targets
+        # if iteration == 10:
+        #     self.queens.update_creep_targets([self.enemy_start_locations[0]])
+
         # basic bot that only builds queens
         await self.do_basic_zergbot(iteration)
 
