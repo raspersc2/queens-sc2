@@ -43,6 +43,7 @@ class CreepQueen(Policy):
     def __init__(
         self,
         distance_between_existing_tumors: int,
+        min_distance_between_existing_tumors: int,
         should_tumors_block_expansions: bool,
         creep_targets: List[Point2],
         spread_style: str,
@@ -54,6 +55,7 @@ class CreepQueen(Policy):
     ):
         super().__init__(**kwargs)
         self.distance_between_existing_tumors = distance_between_existing_tumors
+        self.min_distance_between_existing_tumors = min_distance_between_existing_tumors
         self.should_tumors_block_expansions = should_tumors_block_expansions
         self.creep_targets = creep_targets
         self.spread_style = spread_style

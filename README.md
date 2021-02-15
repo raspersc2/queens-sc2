@@ -53,7 +53,8 @@ queen_policy: Dict = {
       "priority": Union[bool, int],
       "defend_against_air": bool,
       "defend_against_ground": bool,
-      "distance_between_existing_tumors": int,
+      "distance_between_existing_tumors": int, # how far an existing tumor can spread to
+      "min_distance_between_existing_tumors": int, # min distance a tumor is allowed to spread to
       "should_tumors_block_expansions": bool,
       "creep_targets": List[Point2], # library will cycle through these locations
       "spread_style": str, # "targeted" is default, or "random"
