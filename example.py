@@ -24,7 +24,7 @@ class ZergBot(BotAI):
     def __init__(self) -> None:
         super().__init__()
         # SET TO FALSE BEFORE UPLOADING TO LADDER!
-        self.debug: bool = False
+        self.debug: bool = True
         self.basic_bo: List[UnitID] = [
             UnitID.OVERLORD,
             UnitID.DRONE,

@@ -1,5 +1,5 @@
 from typing import Dict, List, Optional
-
+import numpy as np
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
@@ -58,8 +58,9 @@ class Queens:
             Creep.creep_coverage.fget.cache_clear()
 
         if (
-            iteration % 16 == 0 and self.creep.creep_coverage <= 90.0
-        ) or iteration % 128 == 0:
+            self.creep.creep_coverage < 50
+            or iteration % int(self.creep.creep_coverage / 8) == 0
+        ):
             await self.creep.spread_existing_tumors()
 
         for queen in queens:
