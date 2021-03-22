@@ -1,5 +1,5 @@
 import functools
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Tuple
 
 import numpy as np
 from sc2 import BotAI
@@ -12,7 +12,8 @@ from sc2.units import Units
 from queens_sc2.base_unit import BaseUnit
 from queens_sc2.policy import Policy
 
-TARGETED_CREEP_SPREAD = "TARGETED"
+TARGETED_CREEP_SPREAD: str = "TARGETED"
+TIME_TO_CLEAR_PENDING_CREEP_POSITION: int = 20
 
 
 class Creep(BaseUnit):
@@ -31,6 +32,9 @@ class Creep(BaseUnit):
         self.used_tumors: Set[int] = set()
         self.first_tumor: bool = True
         self.first_tumor_retry_attempts: int = 0
+        # keep track of positions where queen is on route to lay a tumor
+        # tuple where first element is position, and second the time it was added so we can clear it out if need be
+        self.pending_positions: List[Tuple[Point2, float]] = []
 
     @property
     @functools.lru_cache()
@@ -87,6 +91,8 @@ class Creep(BaseUnit):
                     unit.move(self.policy.rally_point)
             elif len(unit.orders) == 0:
                 unit.move(self.policy.rally_point)
+        # check if tumor has been placed at a location yet
+        self._clear_pending_positions()
 
     def update_policy(self, policy: Policy) -> None:
         self.policy = policy
@@ -121,13 +127,18 @@ class Creep(BaseUnit):
             )
             or self.position_near_enemy(pos)
             or self.position_near_enemy_townhall(pos)
+            or self._existing_tumors_too_close(pos)
         ):
             should_lay_tumor = False
             self.creep_target_index += 1
 
         if should_lay_tumor:
             queen(AbilityId.BUILD_CREEPTUMOR_QUEEN, pos)
+            self.pending_positions.append((pos, self.bot.time))
             self.creep_target_index += 1
+        # can't lay tumor right now, go back home
+        elif queen.distance_to(self.policy.rally_point) > 7:
+            queen.move(self.policy.rally_point)
 
     async def spread_existing_tumors(self):
         tumors: Units = self.bot.structures.filter(
@@ -160,6 +171,20 @@ class Creep(BaseUnit):
                             should_lay_tumor = False
                         if should_lay_tumor:
                             tumor(AbilityId.BUILD_CREEPTUMOR_TUMOR, pos)
+
+    def _clear_pending_positions(self) -> None:
+        queen_tumors = self.bot.structures({UnitID.CREEPTUMORQUEEN})
+        if not queen_tumors:
+            return
+
+        # recreate the pending position list, depending if a tumor has been placed closeby
+        self.pending_positions = [
+            pending_position
+            for pending_position in self.pending_positions
+            if not queen_tumors.closer_than(3, pending_position[0])
+            and self.bot.time - TIME_TO_CLEAR_PENDING_CREEP_POSITION
+            < pending_position[1]
+        ]
 
     def _find_creep_placement(self, target: Point2) -> Point2:
         nearest_spot = self.creep_map[
@@ -231,11 +256,31 @@ class Creep(BaseUnit):
                 break
         return blocks_expansion
 
-    def update_creep_map(self):
-        creep = np.where(self.bot.state.creep.data_numpy == 1)
+    def update_creep_map(self) -> None:
+        creep: np.ndarray = np.where(self.bot.state.creep.data_numpy == 1)
         self.creep_map = np.vstack((creep[1], creep[0])).transpose()
-        no_creep = np.where(
+        no_creep: np.ndarray = np.where(
             (self.bot.state.creep.data_numpy == 0)
             & (self.bot.game_info.pathing_grid.data_numpy == 1)
         )
         self.no_creep_map = np.vstack((no_creep[1], no_creep[0])).transpose()
+
+    def _existing_tumors_too_close(self, position: Point2) -> bool:
+        """ Using the policy option, check if other tumors are too close """
+        min_distance: int = self.policy.distance_between_queen_tumors
+        # passing 0 or False value into the policy will turn this check off and save computation
+        if not min_distance:
+            return False
+        tumors: Units = self.bot.structures.filter(
+            lambda s: s.type_id in {UnitID.CREEPTUMORBURROWED, UnitID.CREEPTUMORQUEEN}
+        )
+        for tumor in tumors:
+            if position.distance_to(tumor) < min_distance:
+                return True
+
+        # check in the pending creep locations (queen on route to lay tumor)
+        for pending_position in self.pending_positions:
+            if position.distance_to(pending_position[0]) < min_distance:
+                return True
+
+        return False

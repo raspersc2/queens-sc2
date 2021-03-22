@@ -233,6 +233,9 @@ class Queens:
             distance_between_existing_tumors=cq_policy.get(
                 "distance_between_existing_tumors", 10
             ),
+            distance_between_queen_tumors=cq_policy.get(
+                "distance_between_queen_tumors", 7
+            ),
             min_distance_between_existing_tumors=cq_policy.get(
                 "min_distance_between_existing_tumors", 7
             ),

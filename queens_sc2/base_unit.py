@@ -222,6 +222,14 @@ class BaseUnit(ABC):
                 UnitID.ULTRALISK,
                 UnitID.SPINECRAWLER,
                 UnitID.SPORECRAWLER,
+                UnitID.HATCHERY,
+                UnitID.LAIR,
+                UnitID.HIVE,
+                UnitID.VIPER,
+                UnitID.INFESTOR,
+                UnitID.SPAWNINGPOOL,
+                UnitID.NYDUSCANAL,
+                UnitID.NYDUSNETWORK,
             }
             and unit.distance_to(from_pos) < 11
         )
@@ -236,6 +244,7 @@ class BaseUnit(ABC):
     def position_near_enemy(self, pos: Point2) -> bool:
         close_enemy: Units = self.bot.enemy_units.filter(
             lambda unit: unit.position.distance_to(pos) < 12
+            and unit.can_attack_ground
             and unit.type_id
             not in {
                 UnitID.DRONE,
