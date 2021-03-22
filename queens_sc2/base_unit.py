@@ -1,18 +1,20 @@
+import math
 from abc import ABC, abstractmethod
 from typing import Optional, Union
 
 import numpy as np
-from scipy import spatial
-
 from sc2 import BotAI
 from sc2.constants import UNIT_COLOSSUS
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
+from scipy import spatial
 
-from queens_sc2.policy import Policy
 from queens_sc2.cache import property_cache_once_per_frame
+from queens_sc2.policy import Policy
+
+QUEEN_TURN_RATE: float = 999.8437
 
 
 class BaseUnit(ABC):
@@ -89,21 +91,57 @@ class BaseUnit(ABC):
     def update_policy(self, policy: Policy) -> None:
         pass
 
+    # noinspection PyMethodMayBeStatic
+    def angle_to(self, from_pos: Point2, to_pos: Point2) -> float:
+        """Angle from point to other point in radians"""
+        return math.atan2(to_pos.y - from_pos.y, to_pos.x - to_pos.x)
+
+    # noinspection PyMethodMayBeStatic
+    def angle_diff(self, a, b) -> float:
+        """Absolute angle difference between 2 angles"""
+        if a < 0:
+            a += math.pi * 2
+        if b < 0:
+            b += math.pi * 2
+        return math.fabs(a - b)
+
+    def attack_ready(self, unit: Unit, target: Unit) -> bool:
+        """
+        Determine whether the unit can attack the target by the time the unit faces the target.
+        Thanks Sasha for her example code.
+        """
+        # Time elapsed per game step
+        step_time = self.bot.client.game_step / 22.4
+
+        # Time it will take for unit to turn to face target
+        angle = self.angle_diff(
+            unit.facing, self.angle_to(unit.position, target.position)
+        )
+        turn_time = angle / self.get_turn_speed(unit)
+
+        # Time it will take for unit to move in range of target
+        distance = (
+            unit.position.distance_to(target)
+            - unit.radius
+            - target.radius
+            - self.range_vs_target(unit, target)
+        )
+        distance = max(0, distance)
+        move_time = distance / (unit.real_speed * 1.4)
+
+        return step_time + turn_time + move_time >= unit.weapon_cooldown / 22.4
+
     async def do_queen_micro(self, queen: Unit, enemy: Units) -> None:
         if not queen or not enemy:
             return
         in_range_enemies: Units = self.in_attack_range_of(queen, enemy)
         if in_range_enemies:
-            if queen.weapon_cooldown == 0:
-                target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
+            target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
+            if self.attack_ready(queen, target):
                 queen.attack(target)
             else:
-                closest_enemy: Unit = self.find_closest_enemy(queen, in_range_enemies)
-                distance: float = (
-                    queen.ground_range + queen.radius + closest_enemy.radius
-                )
-
-                queen.move(closest_enemy.position.towards(queen, distance))
+                distance: float = queen.ground_range + queen.radius + target.radius
+                queen.move(target.position.towards(queen, distance + 1))
 
         else:
             target = self.find_closest_enemy(queen, enemy)
@@ -125,25 +163,36 @@ class BaseUnit(ABC):
             in_range_structures: Units = self.in_attack_range_of(
                 queen, enemy_structures
             )
-            if queen.weapon_cooldown == 0:
-                if in_range_enemies:
-                    target: Unit = self._get_target_from_in_range_enemies(
-                        in_range_enemies
-                    )
+            if in_range_enemies:
+                target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
+                if self.attack_ready(queen, target):
                     queen.attack(target)
-                elif in_range_structures:
-                    queen.attack(self.find_closest_enemy(queen, in_range_structures))
                 else:
-                    queen.move(offensive_pos)
+                    # loose queens should try to rejoin the queen pack
+                    if own_close_queens.amount <= 3:
+                        queen.move(queens.center)
+                    # otherwise move forward between attacks, since Queen is slow and can get stuck behind each other
+                    else:
+                        queen.move(offensive_pos)
+            elif in_range_structures:
+                target: Unit = self._get_target_from_in_range_enemies(
+                    in_range_structures
+                )
+                if self.attack_ready(queen, target):
+                    queen.attack(target)
+                else:
+                    if own_close_queens.amount <= 3:
+                        queen.move(queens.center)
+                    else:
+                        queen.move(offensive_pos)
             else:
-                if own_close_queens.amount <= 3:
-                    queen.move(queens.center)
-                else:
-                    queen.move(offensive_pos)
+                queen.move(offensive_pos)
+
         else:
             queen.attack(offensive_pos)
 
     def _get_target_from_in_range_enemies(self, in_range_enemies: Units) -> Unit:
+        """ We get the queens to prioritise in range flying units """
         if in_range_enemies.flying:
             lowest_hp: Unit = min(
                 in_range_enemies.flying,
@@ -178,6 +227,11 @@ class BaseUnit(ABC):
         )
 
         return transfuse_targets.closest_to(from_pos) if transfuse_targets else None
+
+    # noinspection PyMethodMayBeStatic
+    def get_turn_speed(self, unit) -> float:
+        """Returns turn speed of unit in radians"""
+        return QUEEN_TURN_RATE * 1.4 * math.pi / 180
 
     def position_near_enemy(self, pos: Point2) -> bool:
         close_enemy: Units = self.bot.enemy_units.filter(
@@ -215,6 +269,14 @@ class BaseUnit(ABC):
             and unit.distance_to(pos) < 20
         )
         return True if close_townhalls else False
+
+    # noinspection PyMethodMayBeStatic
+    def range_vs_target(self, unit, target) -> float:
+        """Get the range of a unit to a target."""
+        if unit.can_attack_air and target.is_flying:
+            return unit.air_range
+        else:
+            return unit.ground_range
 
     def find_closest_enemy(self, unit: Unit, enemies: Units) -> Optional[Unit]:
         """
