@@ -133,7 +133,9 @@ class BaseUnit(ABC):
     async def do_queen_micro(self, queen: Unit, enemy: Units) -> None:
         if not queen or not enemy:
             return
-        in_range_enemies: Units = self.in_attack_range_of(queen, enemy)
+        air_enemy: Units = self.bot.enemy_units.flying
+        enemy_force: Units = air_enemy + enemy
+        in_range_enemies: Units = self.in_attack_range_of(queen, enemy_force)
         if in_range_enemies:
             target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
             if self.attack_ready(queen, target):

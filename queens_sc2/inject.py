@@ -33,7 +33,7 @@ class Inject(BaseUnit):
             elif self.policy.defend_against_ground and ground_threats_near_bases:
                 await self.do_queen_micro(unit, ground_threats_near_bases)
             else:
-                if unit.energy >= 25 and not th.has_buff():
+                if unit.energy >= 25:
                     unit(AbilityId.EFFECT_INJECTLARVA, th)
                 # control the queen between injects
                 else:
@@ -54,15 +54,17 @@ class Inject(BaseUnit):
         """
         Between injects, we want the Queen to have the following behavior:
         - Attack any enemy that gets too close
-        - Move the Queen back if she goes too far
-        - Stay out of the mineral line, incase bot has custom mineral gathering(don't block workers)
+        - Move the Queen back if she goes too far from the townhall
+        - Stay out of the mineral line, incase bot has custom mineral gathering (don't block workers)
         """
-        # stop queen wondering off is most important
+        # don't do anything else, just move the queen back
         if queen.distance_to(townhall) > 7:
             queen.move(townhall)
             return
+
         close_threats: Units = Units([], self.bot)
         # we can only have close threats if enemy are near our bases in the first place
+        # so save calculation otherwise
         if air_threats_near_bases or ground_threats_near_bases:
             close_threats = self.bot.enemy_units.filter(
                 lambda enemy: enemy.position.distance_to(townhall) < 10
@@ -70,10 +72,11 @@ class Inject(BaseUnit):
 
         if close_threats:
             await self.do_queen_micro(queen, close_threats)
-        # every now and then, check queen is not in the mineral field
-        elif self.bot.state.game_loop % 128 == 0:
+        # every now and then, check queen is not in the mineral field blocking workers
+        elif self.bot.state.game_loop % 64 == 0:
             close_mfs: Units = self.bot.mineral_field.filter(
                 lambda mf: mf.distance_to(townhall) < 8
             )
+            # make a small adjustment away from the minerals
             if close_mfs and queen.distance_to(close_mfs.center) < 6:
                 queen.move(queen.position.towards(close_mfs.center, -1))

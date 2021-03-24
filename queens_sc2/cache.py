@@ -11,7 +11,7 @@ def property_cache_once_per_frame(f):
     def inner(self):
         property_cache = "_cache_" + f.__name__
         state_cache = "_frame_" + f.__name__
-        cache_updated = getattr(self, state_cache, -1) == self.bot.state.game_loop
+        cache_updated = getattr(self.bot, state_cache, -1) == self.bot.state.game_loop
         if not cache_updated:
             setattr(self.bot, property_cache, f(self))
             setattr(self.bot, state_cache, self.bot.state.game_loop)
