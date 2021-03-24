@@ -52,9 +52,12 @@ class Creep(BaseUnit):
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
         unit: Unit,
-        priority_enemy_units: Units,
         th_tag: int = 0,
     ) -> None:
+
+        priority_enemy_units: Units = self.get_priority_enemy_units(
+            air_threats_near_bases + ground_threats_near_bases
+        )
 
         should_spread_creep: bool = self._check_queen_can_spread_creep(unit)
         self.creep_targets = self.policy.creep_targets

@@ -17,9 +17,11 @@ class Inject(BaseUnit):
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
         unit: Unit,
-        priority_enemy_units: Units,
         th_tag: int,
     ) -> None:
+        priority_enemy_units: Units = self.get_priority_enemy_units(
+            air_threats_near_bases + ground_threats_near_bases
+        )
 
         ths: Units = self.bot.townhalls.ready.tags_in([th_tag])
         if ths:

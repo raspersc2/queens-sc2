@@ -44,10 +44,6 @@ class Queens:
             air_threats: Units = self.defence.enemy_air_threats
             ground_threats: Units = self.defence.enemy_ground_threats
 
-        priority_enemy_units: Units = self.defence.get_priority_enemy_units(
-            air_threats + ground_threats
-        )
-
         if queens is None:
             queens: Units = self.bot.units(UnitID.QUEEN)
 
@@ -79,17 +75,12 @@ class Queens:
                     air_threats,
                     ground_threats,
                     queen,
-                    priority_enemy_units,
                     self.inject_targets[queen.tag],
                 )
             elif queen.tag in self.creep_queen_tags:
-                await self.creep.handle_unit(
-                    air_threats, ground_threats, queen, priority_enemy_units
-                )
+                await self.creep.handle_unit(air_threats, ground_threats, queen)
             elif queen.tag in self.defence_queen_tags:
-                await self.defence.handle_unit(
-                    air_threats, ground_threats, queen, priority_enemy_units
-                )
+                await self.defence.handle_unit(air_threats, ground_threats, queen)
         if self.debug:
             await self._draw_debug_info()
 

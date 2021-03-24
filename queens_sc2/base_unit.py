@@ -82,7 +82,6 @@ class BaseUnit(ABC):
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
         unit: Unit,
-        priority_enemy_units: Units,
         th_tag: int,
     ) -> None:
         pass
