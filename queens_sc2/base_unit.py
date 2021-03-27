@@ -46,16 +46,15 @@ class BaseUnit(ABC):
     @property_cache_once_per_frame
     def enemy_ground_threats(self) -> Units:
         ground_threats: Units = Units([], self.bot)
-        ground_units: Units = self.bot.enemy_units.not_flying
+        ground_units: Units = self.bot.all_enemy_units.not_flying
         threats: Units = Units([], self.bot)
         if ground_units:
             for th in self.bot.townhalls.ready:
                 closest_enemy: Unit = self.find_closest_enemy(th, ground_units)
                 if closest_enemy.position.distance_to(th) < 18:
                     ground_threats.extend(
-                        self.bot.enemy_units.filter(
-                            lambda unit: not unit.is_flying
-                            and not unit.is_hallucination
+                        ground_units.filter(
+                            lambda unit: not unit.is_hallucination
                             and not unit.is_burrowed
                             and unit.type_id
                             not in {
@@ -109,6 +108,10 @@ class BaseUnit(ABC):
         Determine whether the unit can attack the target by the time the unit faces the target.
         Thanks Sasha for her example code.
         """
+        # takes around 6-7 frames for both attacks (14.206 frames from attack start till next attack is ready)
+        # better to get both attacks off then kite a little bit later
+        if unit.weapon_cooldown > 7:
+            return True
         # Time elapsed per game step
         step_time = self.bot.client.game_step / 22.4
 
@@ -127,6 +130,7 @@ class BaseUnit(ABC):
         )
         distance = max(0, distance)
         move_time = distance / (unit.real_speed * 1.4)
+        print(unit.weapon_cooldown)
 
         return step_time + turn_time + move_time >= unit.weapon_cooldown / 22.4
 

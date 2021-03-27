@@ -256,7 +256,7 @@ class Queens:
                 "pass_own_threats",
                 False,
             ),
-            prioritize_creep=cq_policy.get("prioritize_creep", lambda: True),
+            prioritize_creep=cq_policy.get("prioritize_creep", lambda: False),
             priority_defence_list=cq_policy.get("priority_defence_list", set()),
         )
 
