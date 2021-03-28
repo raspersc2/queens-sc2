@@ -49,7 +49,7 @@ class BaseUnit(ABC):
         ground_units: Units = self.bot.all_enemy_units.not_flying
         threats: Units = Units([], self.bot)
         if ground_units:
-            for th in self.bot.townhalls.ready:
+            for th in self.bot.townhalls:
                 closest_enemy: Unit = self.find_closest_enemy(th, ground_units)
                 if closest_enemy.position.distance_to(th) < 18:
                     ground_threats.extend(
@@ -108,9 +108,9 @@ class BaseUnit(ABC):
         Determine whether the unit can attack the target by the time the unit faces the target.
         Thanks Sasha for her example code.
         """
-        # takes around 6-7 frames for both attacks (14.206 frames from attack start till next attack is ready)
+        # takes around 4-5 frames for both attacks (14.206 frames from attack start till next attack is ready)
         # better to get both attacks off then kite a little bit later
-        if unit.weapon_cooldown > 7:
+        if unit.weapon_cooldown > 9:
             return True
         # Time elapsed per game step
         step_time = self.bot.client.game_step / 22.4
@@ -130,7 +130,6 @@ class BaseUnit(ABC):
         )
         distance = max(0, distance)
         move_time = distance / (unit.real_speed * 1.4)
-        print(unit.weapon_cooldown)
 
         return step_time + turn_time + move_time >= unit.weapon_cooldown / 22.4
 
@@ -146,7 +145,9 @@ class BaseUnit(ABC):
                 queen.attack(target)
             else:
                 distance: float = queen.ground_range + queen.radius + target.radius
-                queen.move(target.position.towards(queen, distance + 1))
+                move_to: Point2 = target.position.towards(queen, distance)
+                if self.bot.in_pathing_grid(move_to):
+                    queen.move(move_to)
 
         else:
             target = self.find_closest_enemy(queen, enemy)
@@ -223,6 +224,8 @@ class BaseUnit(ABC):
                 UnitID.QUEEN,
                 UnitID.RAVAGER,
                 UnitID.ROACH,
+                UnitID.OVERSEER,
+                UnitID.OVERLORD,
                 UnitID.SWARMHOSTMP,
                 UnitID.ULTRALISK,
                 UnitID.SPINECRAWLER,
