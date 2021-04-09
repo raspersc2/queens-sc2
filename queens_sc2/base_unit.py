@@ -1,6 +1,6 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Set, Union
 
 import numpy as np
 from sc2 import BotAI
@@ -15,6 +15,30 @@ from queens_sc2.cache import property_cache_once_per_frame
 from queens_sc2.policy import Policy
 
 QUEEN_TURN_RATE: float = 999.8437
+UNITS_TO_TRANSFUSE: Set[UnitID] = {
+    UnitID.BROODLORD,
+    UnitID.CORRUPTOR,
+    UnitID.HYDRALISK,
+    UnitID.LURKER,
+    UnitID.MUTALISK,
+    UnitID.QUEEN,
+    UnitID.RAVAGER,
+    UnitID.ROACH,
+    UnitID.OVERSEER,
+    UnitID.OVERLORD,
+    UnitID.SWARMHOSTMP,
+    UnitID.ULTRALISK,
+    UnitID.SPINECRAWLER,
+    UnitID.SPORECRAWLER,
+    UnitID.HATCHERY,
+    UnitID.LAIR,
+    UnitID.HIVE,
+    UnitID.VIPER,
+    UnitID.INFESTOR,
+    UnitID.SPAWNINGPOOL,
+    UnitID.NYDUSCANAL,
+    UnitID.NYDUSNETWORK,
+}
 
 
 class BaseUnit(ABC):
@@ -69,11 +93,6 @@ class BaseUnit(ABC):
                     )
             threats = ground_threats
         return threats
-
-    def get_priority_enemy_units(self, enemy_threats: Units) -> Optional[Units]:
-        if len(self.policy.priority_defence_list) != 0:
-            priority_threats: Units = enemy_threats(self.policy.priority_defence_list)
-            return priority_threats
 
     @abstractmethod
     async def handle_unit(
@@ -150,8 +169,11 @@ class BaseUnit(ABC):
                 if self.bot.in_pathing_grid(move_to):
                     queen.move(move_to)
 
-        else:
-            target = self.find_closest_enemy(queen, enemy)
+        elif enemy:
+            target = enemy.closest_to(queen)
+            queen.attack(target)
+        elif self.bot.all_enemy_units:
+            target = self.bot.all_enemy_units.closest_to(queen)
             queen.attack(target)
 
     async def do_queen_offensive_micro(
@@ -213,34 +235,12 @@ class BaseUnit(ABC):
     def get_transfuse_target(
         self, from_pos: Point2, targets_being_transfused: Dict[int, float]
     ) -> Optional[Unit]:
+        # unit tags that have already been transfused recently
+        active_transfuse_target_tags = targets_being_transfused.keys()
         transfuse_targets: Units = self.bot.all_own_units.filter(
             lambda unit: unit.health_percentage < 0.4
-            and unit.tag not in targets_being_transfused.keys()
-            and unit.type_id
-            in {
-                UnitID.BROODLORD,
-                UnitID.CORRUPTOR,
-                UnitID.HYDRALISK,
-                UnitID.LURKER,
-                UnitID.MUTALISK,
-                UnitID.QUEEN,
-                UnitID.RAVAGER,
-                UnitID.ROACH,
-                UnitID.OVERSEER,
-                UnitID.OVERLORD,
-                UnitID.SWARMHOSTMP,
-                UnitID.ULTRALISK,
-                UnitID.SPINECRAWLER,
-                UnitID.SPORECRAWLER,
-                UnitID.HATCHERY,
-                UnitID.LAIR,
-                UnitID.HIVE,
-                UnitID.VIPER,
-                UnitID.INFESTOR,
-                UnitID.SPAWNINGPOOL,
-                UnitID.NYDUSCANAL,
-                UnitID.NYDUSNETWORK,
-            }
+            and unit.tag not in active_transfuse_target_tags
+            and unit.type_id in UNITS_TO_TRANSFUSE
             and unit.distance_to(from_pos) < 11
         )
 

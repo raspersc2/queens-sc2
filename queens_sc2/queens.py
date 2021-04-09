@@ -107,9 +107,17 @@ class Queens:
     async def _handle_queens(
         self, air_threats: Units, ground_threats: Units, queens: Units
     ):
-        priority_enemy_units: Units = self.get_priority_enemy_units(
-            air_threats + ground_threats
+        all_close_threats = air_threats.extend(ground_threats)
+        creep_priority_enemy_units: Units = self._get_priority_enemy_units(
+            all_close_threats, self.creep.policy
         )
+        defence_priority_enemy_units: Units = self._get_priority_enemy_units(
+            all_close_threats, self.defence.policy
+        )
+        inject_priority_enemy_units: Units = self._get_priority_enemy_units(
+            all_close_threats, self.inject.policy
+        )
+        print(defence_priority_enemy_units)
         """ Main Queen loop """
         for queen in queens:
             self._assign_queen_role(queen)
@@ -123,17 +131,17 @@ class Queens:
                 await self.inject.handle_unit(
                     air_threats,
                     ground_threats,
-                    priority_enemy_units,
+                    inject_priority_enemy_units,
                     queen,
                     self.inject_targets[queen.tag],
                 )
             elif queen.tag in self.creep_queen_tags:
                 await self.creep.handle_unit(
-                    air_threats, ground_threats, priority_enemy_units, queen
+                    air_threats, ground_threats, creep_priority_enemy_units, queen
                 )
             elif queen.tag in self.defence_queen_tags:
                 await self.defence.handle_unit(
-                    air_threats, ground_threats, priority_enemy_units, queen
+                    air_threats, ground_threats, defence_priority_enemy_units, queen
                 )
 
     async def _handle_transfuse(self, queen: Unit) -> bool:
@@ -335,6 +343,13 @@ class Queens:
         }
 
         return policies
+
+    def _get_priority_enemy_units(
+        self, enemy_threats: Optional[Units], policy: Policy
+    ) -> Optional[Units]:
+        if enemy_threats and len(policy.priority_defence_list) != 0:
+            priority_threats: Units = enemy_threats(policy.priority_defence_list)
+            return priority_threats
 
     def _path_expansion_distances(self) -> List[Point2]:
         """
