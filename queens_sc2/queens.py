@@ -177,7 +177,11 @@ class Queens:
                 )
             elif queen.tag in self.creep_queen_tags:
                 await self.creep.handle_unit(
-                    air_threats, ground_threats, creep_priority_enemy_units, queen, grid
+                    air_threats,
+                    ground_threats,
+                    creep_priority_enemy_units,
+                    queen,
+                    grid=grid,
                 )
             elif queen.tag in self.defence_queen_tags:
                 await self.defence.handle_unit(
@@ -185,7 +189,7 @@ class Queens:
                     ground_threats,
                     defence_priority_enemy_units,
                     queen,
-                    grid,
+                    grid=grid,
                 )
 
     async def _handle_transfuse(self, queen: Unit) -> bool:
