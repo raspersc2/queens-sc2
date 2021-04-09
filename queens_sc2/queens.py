@@ -28,6 +28,9 @@ class Queens:
         self.creep: Creep = Creep(bot, self.policies[CREEP_POLICY])
         self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY])
         self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY])
+        self.transfuse_dict: Dict[int] = {}
+        # key: unit tag, value: when to expire so unit can be transfused again
+        self.targets_being_transfused: Dict[int, float] = {}
         self.creep.update_creep_map()
 
     async def manage_queens(
@@ -59,28 +62,8 @@ class Queens:
         ):
             await self.creep.spread_existing_tumors()
 
-        for queen in queens:
-            self._assign_queen_role(queen)
-            # if any queen has more than 50 energy, she may transfuse
-            if queen.energy >= 50:
-                transfuse_target: Unit = self.defence.get_transfuse_target(
-                    queen.position
-                )
-                if transfuse_target and transfuse_target is not queen:
-                    queen(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
-                    continue
+        await self._handle_queens(air_threats, ground_threats, queens)
 
-            if queen.tag in self.inject_targets.keys():
-                await self.inject.handle_unit(
-                    air_threats,
-                    ground_threats,
-                    queen,
-                    self.inject_targets[queen.tag],
-                )
-            elif queen.tag in self.creep_queen_tags:
-                await self.creep.handle_unit(air_threats, ground_threats, queen)
-            elif queen.tag in self.defence_queen_tags:
-                await self.defence.handle_unit(air_threats, ground_threats, queen)
         if self.debug:
             await self._draw_debug_info()
 
@@ -120,6 +103,47 @@ class Queens:
 
     def update_creep_targets(self, creep_targets: List[Point2]) -> None:
         self.creep.set_creep_targets(creep_targets)
+
+    async def _handle_queens(
+        self, air_threats: Units, ground_threats: Units, queens: Units
+    ):
+        """ Main Queen loop """
+        for queen in queens:
+            self._assign_queen_role(queen)
+            # if any queen has more than 50 energy, she may transfuse
+            if queen.energy >= 50:
+                # method will return True if queen is transfusing
+                if await self._handle_transfuse(queen):
+                    continue
+
+            if queen.tag in self.inject_targets.keys():
+                await self.inject.handle_unit(
+                    air_threats,
+                    ground_threats,
+                    queen,
+                    self.inject_targets[queen.tag],
+                )
+            elif queen.tag in self.creep_queen_tags:
+                await self.creep.handle_unit(air_threats, ground_threats, queen)
+            elif queen.tag in self.defence_queen_tags:
+                await self.defence.handle_unit(air_threats, ground_threats, queen)
+
+    async def _handle_transfuse(self, queen: Unit) -> bool:
+        """ Deal with a queen transfusing """
+        # clear out targets from the dict after a hort interval so they may be transfused again
+        transfuse_tags = list(self.targets_being_transfused.keys())
+        for tag in transfuse_tags:
+            if self.targets_being_transfused[tag] < self.bot.time:
+                self.targets_being_transfused.pop(tag)
+
+        transfuse_target: Unit = self.defence.get_transfuse_target(
+            queen.position, self.targets_being_transfused
+        )
+        if transfuse_target and transfuse_target is not queen:
+            queen(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
+            self.targets_being_transfused[transfuse_target.tag] = self.bot.time + 0.4
+            return True
+        return False
 
     def _assign_queen_role(self, queen: Unit) -> None:
         """

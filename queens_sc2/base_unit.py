@@ -1,6 +1,6 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, Union
+from typing import Dict, Optional, Set, Union
 
 import numpy as np
 from sc2 import BotAI
@@ -211,9 +211,12 @@ class BaseUnit(ABC):
             )
         return lowest_hp
 
-    def get_transfuse_target(self, from_pos: Point2) -> Optional[Unit]:
+    def get_transfuse_target(
+        self, from_pos: Point2, targets_being_transfused: Dict[int, float]
+    ) -> Optional[Unit]:
         transfuse_targets: Units = self.bot.all_own_units.filter(
             lambda unit: unit.health_percentage < 0.4
+            and unit.tag not in targets_being_transfused.keys()
             and unit.type_id
             in {
                 UnitID.BROODLORD,
