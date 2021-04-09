@@ -17,14 +17,10 @@ class Defence(BaseUnit):
         self,
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
+        priority_enemy_units: Units,
         unit: Unit,
         th_tag: int = 0,
     ) -> None:
-
-        priority_enemy_units: Units = self.get_priority_enemy_units(
-            air_threats_near_bases + ground_threats_near_bases
-        )
-
         if priority_enemy_units:
             await self.do_queen_micro(unit, priority_enemy_units)
         elif self.policy.attack_condition():

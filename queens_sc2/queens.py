@@ -107,6 +107,9 @@ class Queens:
     async def _handle_queens(
         self, air_threats: Units, ground_threats: Units, queens: Units
     ):
+        priority_enemy_units: Units = self.get_priority_enemy_units(
+            air_threats + ground_threats
+        )
         """ Main Queen loop """
         for queen in queens:
             self._assign_queen_role(queen)
@@ -120,20 +123,25 @@ class Queens:
                 await self.inject.handle_unit(
                     air_threats,
                     ground_threats,
+                    priority_enemy_units,
                     queen,
                     self.inject_targets[queen.tag],
                 )
             elif queen.tag in self.creep_queen_tags:
-                await self.creep.handle_unit(air_threats, ground_threats, queen)
+                await self.creep.handle_unit(
+                    air_threats, ground_threats, priority_enemy_units, queen
+                )
             elif queen.tag in self.defence_queen_tags:
-                await self.defence.handle_unit(air_threats, ground_threats, queen)
+                await self.defence.handle_unit(
+                    air_threats, ground_threats, priority_enemy_units, queen
+                )
 
     async def _handle_transfuse(self, queen: Unit) -> bool:
         """ Deal with a queen transfusing """
-        # clear out targets from the dict after a hort interval so they may be transfused again
+        # clear out targets from the dict after a short interval so they may be transfused again
         transfuse_tags = list(self.targets_being_transfused.keys())
         for tag in transfuse_tags:
-            if self.targets_being_transfused[tag] < self.bot.time:
+            if self.targets_being_transfused[tag] > self.bot.time:
                 self.targets_being_transfused.pop(tag)
 
         transfuse_target: Unit = self.defence.get_transfuse_target(

@@ -1,6 +1,6 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Set, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 from sc2 import BotAI
@@ -30,7 +30,7 @@ class BaseUnit(ABC):
         threats: Units = Units([], self.bot)
         if air_units:
             for th in self.bot.townhalls.ready:
-                closest_enemy: Unit = self.find_closest_enemy(th, air_units)
+                closest_enemy: Unit = air_units.closest_to(th)
                 if closest_enemy.position.distance_to(th) < 18:
                     air_threats.extend(
                         self.bot.enemy_units.filter(
@@ -50,7 +50,7 @@ class BaseUnit(ABC):
         threats: Units = Units([], self.bot)
         if ground_units:
             for th in self.bot.townhalls:
-                closest_enemy: Unit = self.find_closest_enemy(th, ground_units)
+                closest_enemy: Unit = ground_units.closest_to(th)
                 if closest_enemy.position.distance_to(th) < 18:
                     ground_threats.extend(
                         ground_units.filter(
@@ -80,8 +80,9 @@ class BaseUnit(ABC):
         self,
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
+        priority_enemy_units: Units,
         unit: Unit,
-        th_tag: int,
+        th_tag: int = 0,
     ) -> None:
         pass
 
@@ -119,7 +120,7 @@ class BaseUnit(ABC):
         angle = self.angle_diff(
             unit.facing, self.angle_to(unit.position, target.position)
         )
-        turn_time = angle / self.get_turn_speed(unit)
+        turn_time = angle / self.get_turn_speed()
 
         # Time it will take for unit to move in range of target
         distance = (
@@ -134,11 +135,11 @@ class BaseUnit(ABC):
         return step_time + turn_time + move_time >= unit.weapon_cooldown / 22.4
 
     async def do_queen_micro(self, queen: Unit, enemy: Units) -> None:
-        if not queen or not enemy:
+        if not queen:
             return
-        air_enemy: Units = self.bot.enemy_units.flying
-        enemy_force: Units = air_enemy + enemy
-        in_range_enemies: Units = self.in_attack_range_of(queen, enemy_force)
+
+        in_range_enemies: Units = self.bot.enemy_units.in_attack_range_of(queen)
+        in_range_enemies = in_range_enemies.exclude_type({UnitID.EGG, UnitID.LARVA})
         if in_range_enemies:
             target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
             if self.attack_ready(queen, target):
@@ -165,10 +166,8 @@ class BaseUnit(ABC):
         queens: Units = self.bot.units(UnitID.QUEEN)
         own_close_queens: Units = queens.filter(lambda u: u.distance_to(queen) < 5)
         if enemy:
-            in_range_enemies: Units = self.in_attack_range_of(queen, enemy)
-            in_range_structures: Units = self.in_attack_range_of(
-                queen, enemy_structures
-            )
+            in_range_enemies: Units = enemy.in_attack_range_of(queen)
+            in_range_structures: Units = enemy_structures.in_attack_range_of(queen)
             if in_range_enemies:
                 target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
                 if self.attack_ready(queen, target):
@@ -248,7 +247,7 @@ class BaseUnit(ABC):
         return transfuse_targets.closest_to(from_pos) if transfuse_targets else None
 
     # noinspection PyMethodMayBeStatic
-    def get_turn_speed(self, unit) -> float:
+    def get_turn_speed(self) -> float:
         """Returns turn speed of unit in radians"""
         return QUEEN_TURN_RATE * 1.4 * math.pi / 180
 
