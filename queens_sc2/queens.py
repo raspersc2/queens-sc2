@@ -312,7 +312,7 @@ class Queens:
                 "distance_between_queen_tumors", 7
             ),
             min_distance_between_existing_tumors=cq_policy.get(
-                "min_distance_between_existing_tumors", 7
+                "min_distance_between_existing_tumors", 3
             ),
             should_tumors_block_expansions=cq_policy.get(
                 "should_tumors_block_expansions", False
