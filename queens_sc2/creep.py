@@ -85,7 +85,7 @@ class Creep(BaseUnit):
             and len(unit.orders) == 0
             and self.creep_coverage < self.policy.target_perc_coverage
         ):
-            await self.spread_creep(unit)
+            await self.spread_creep(unit, grid)
         elif unit.distance_to(self.policy.rally_point) > 7:
             if len(unit.orders) > 0:
                 if unit.orders[0].ability.button_name != "CreepTumor":
@@ -104,7 +104,7 @@ class Creep(BaseUnit):
     def set_creep_targets(self, creep_targets: List[Point2]) -> None:
         self.policy.creep_targets = creep_targets
 
-    async def spread_creep(self, queen: Unit) -> None:
+    async def spread_creep(self, queen: Unit, grid: Optional[np.ndarray]) -> None:
         if self.creep_target_index >= len(self.creep_targets):
             self.creep_target_index = 0
 
@@ -117,12 +117,22 @@ class Creep(BaseUnit):
             return
 
         should_lay_tumor: bool = True
-        pos: Point2 = self._find_closest_to_target(
-            self.creep_targets[self.creep_target_index], self.creep_map
-        )
+        # if using map_data, creep will follow ground path to the targets
+        if self.map_data:
+            if not grid:
+                grid = self.map_data.get_pyastar_grid()
+            pos: Point2 = self._find_closest_to_target_using_path(
+                self.creep_targets[self.creep_target_index], self.creep_map, grid
+            )
+
+        else:
+            pos: Point2 = self._find_closest_to_target(
+                self.creep_targets[self.creep_target_index], self.creep_map
+            )
 
         if (
-            (
+            not pos
+            or (
                 self.policy.should_tumors_block_expansions is False
                 and self.position_blocks_expansion(pos)
             )
@@ -235,11 +245,15 @@ class Creep(BaseUnit):
             if self.bot.has_creep(creep_pos):
                 return creep_pos
 
-    def _find_closest_to_target(self, from_pos: Point2, grid: np.ndarray) -> Point2:
+    def _find_closest_to_target(
+        self, target_pos: Point2, creep_grid: np.ndarray
+    ) -> Point2:
         try:
-            nearest_spot = grid[
+            nearest_spot = creep_grid[
                 np.sum(
-                    np.square(np.abs(grid - np.array([[from_pos.x, from_pos.y]]))),
+                    np.square(
+                        np.abs(creep_grid - np.array([[target_pos.x, target_pos.y]]))
+                    ),
                     1,
                 ).argmin()
             ]
@@ -247,7 +261,20 @@ class Creep(BaseUnit):
             pos = Point2(Pointlike((nearest_spot[0], nearest_spot[1])))
             return pos
         except ValueError:
-            return from_pos.towards(self.bot.start_location, 1)
+            return target_pos.towards(self.bot.start_location, 1)
+
+    def _find_closest_to_target_using_path(
+        self, target_pos: Point2, creep_grid: np.ndarray, pathing_grid: np.ndarray
+    ) -> Optional[Point2]:
+        path: List[Point2] = self.map_data.pathfind(
+            self.bot.start_location, target_pos, pathing_grid
+        )
+        if path:
+            # find first point in path that has no creep
+            for point in path:
+                if not self.bot.has_creep(point):
+                    # then get closest creep tile, to this no creep tile
+                    return self._find_closest_to_target(point, creep_grid)
 
     def position_blocks_expansion(self, position: Point2) -> bool:
         """ Will the creep tumor block expansion """

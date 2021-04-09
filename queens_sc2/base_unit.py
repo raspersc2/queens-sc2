@@ -163,14 +163,16 @@ class BaseUnit(ABC):
         in_range_enemies = in_range_enemies.exclude_type({UnitID.EGG, UnitID.LARVA})
         if in_range_enemies:
             target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
-            if self.attack_ready(queen, target):
-                queen.attack(target)
+            if target:
+                if self.attack_ready(queen, target):
+                    queen.attack(target)
+                else:
+                    distance: float = queen.ground_range + queen.radius + target.radius
+                    move_to: Point2 = target.position.towards(queen, distance)
+                    if self.bot.in_pathing_grid(move_to):
+                        queen.move(move_to)
             else:
-                distance: float = queen.ground_range + queen.radius + target.radius
-                move_to: Point2 = target.position.towards(queen, distance)
-                if self.bot.in_pathing_grid(move_to):
-                    queen.move(move_to)
-
+                queen.attack(in_range_enemies.center)
         elif enemy:
             target = enemy.closest_to(queen)
             queen.attack(target)

@@ -15,7 +15,6 @@ from queens_sc2.policy import DefenceQueen, CreepQueen, InjectQueen, Policy
 CREEP_POLICY: str = "creep_policy"
 DEFENCE_POLICY: str = "defence_policy"
 INJECT_POLICY: str = "inject_policy"
-USING_MAP_ANALYZER: str = "using_map_analyzer"
 
 
 class Queens:
@@ -34,7 +33,7 @@ class Queens:
         async def on_start(self) -> None:
             self.map_data = MapData(self)  # where self is your BotAI object from python-sc2
             self.queens = Queens(
-                self, queen_policy=self.my_policy, using_map_analyzer=True, map_data=self.map_data
+                self, queen_policy=self.my_policy, map_data=self.map_data
             )
             
         async def on_step(self, iteration: int) -> None:
@@ -51,7 +50,6 @@ class Queens:
         bot: BotAI,
         debug: bool = False,
         queen_policy: Dict = None,
-        using_map_analyzer: bool = False,
         map_data: Optional["MapData"] = None,
     ):
         self.bot: BotAI = bot
@@ -59,9 +57,7 @@ class Queens:
         self.creep_queen_tags: List[int] = []
         self.defence_queen_tags: List[int] = []
         self.inject_targets: Dict[int, int] = {}
-        self.policies: Dict[str, Policy] = self._read_queen_policy(
-            queen_policy, using_map_analyzer
-        )
+        self.policies: Dict[str, Policy] = self._read_queen_policy(queen_policy)
         self.creep: Creep = Creep(bot, self.policies[CREEP_POLICY], map_data)
         self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY], map_data)
         self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY], map_data)
@@ -69,7 +65,7 @@ class Queens:
         # key: unit tag, value: when to expire so unit can be transfused again
         self.targets_being_transfused: Dict[int, float] = {}
         self.creep.update_creep_map()
-        if map_data and using_map_analyzer:
+        if map_data:
             self.map_data = map_data
 
     async def manage_queens(
@@ -127,10 +123,8 @@ class Queens:
                 if queens:
                     self._assign_queen_role(queens.first)
 
-    def set_new_policy(
-        self, queen_policy, reset_roles: bool = True, using_map_analyzer: bool = False
-    ) -> None:
-        self.policies = self._read_queen_policy(queen_policy, using_map_analyzer)
+    def set_new_policy(self, queen_policy, reset_roles: bool = True) -> None:
+        self.policies = self._read_queen_policy(queen_policy)
         if reset_roles:
             self.creep_queen_tags = []
             self.defence_queen_tags = []
@@ -232,8 +226,6 @@ class Queens:
         )
         # work out which roles are of priority
         for key, value in self.policies.items():
-            if key == USING_MAP_ANALYZER:
-                continue
             if value.active and value.priority:
                 max_queens: int = (
                     value.priority if type(value.priority) == int else value.max_queens
@@ -291,9 +283,7 @@ class Queens:
                 queen_tag.append(tag)
         return len(queen_tag) > 0
 
-    def _read_queen_policy(
-        self, queen_policy: Dict, using_map_analyzer: bool
-    ) -> Dict[str, Policy]:
+    def _read_queen_policy(self, queen_policy: Dict) -> Dict[str, Policy]:
         """
         Read the queen policy the user passed in, add default
         params for missing values
@@ -327,6 +317,8 @@ class Queens:
             should_tumors_block_expansions=cq_policy.get(
                 "should_tumors_block_expansions", False
             ),
+            # TODO: It would perhaps be nice for creep targets to contain a Tuple(from_pos, to_pos)
+            #   This is helpful when using pathing to spread creep
             creep_targets=cq_policy.get(
                 "creep_targets",
                 self._path_expansion_distances(),
@@ -391,7 +383,6 @@ class Queens:
         )
 
         policies = {
-            USING_MAP_ANALYZER: using_map_analyzer,
             CREEP_POLICY: creep_queen_policy,
             DEFENCE_POLICY: defence_queen_policy,
             INJECT_POLICY: inject_queen_policy,
