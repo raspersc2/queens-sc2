@@ -119,7 +119,7 @@ class Creep(BaseUnit):
         should_lay_tumor: bool = True
         # if using map_data, creep will follow ground path to the targets
         if self.map_data:
-            if not grid:
+            if grid is None:
                 grid = self.map_data.get_pyastar_grid()
             pos: Point2 = self._find_closest_to_target_using_path(
                 self.creep_targets[self.creep_target_index], self.creep_map, grid
