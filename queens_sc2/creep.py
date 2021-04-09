@@ -20,8 +20,8 @@ class Creep(BaseUnit):
     creep_map: np.ndarray
     no_creep_map: np.ndarray
 
-    def __init__(self, bot: BotAI, creep_policy: Policy):
-        super().__init__(bot)
+    def __init__(self, bot: BotAI, creep_policy: Policy, map_data: Optional["MapData"]):
+        super().__init__(bot, map_data)
         self.policy = creep_policy
         self.creep_targets: List[Point2] = []
         self.creep_target_index: int = 0
@@ -54,6 +54,7 @@ class Creep(BaseUnit):
         priority_enemy_units: Units,
         unit: Unit,
         th_tag: int = 0,
+        grid: Optional[np.ndarray] = None,
     ) -> None:
 
         should_spread_creep: bool = self._check_queen_can_spread_creep(unit)

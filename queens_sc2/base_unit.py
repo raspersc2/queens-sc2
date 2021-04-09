@@ -44,8 +44,9 @@ UNITS_TO_TRANSFUSE: Set[UnitID] = {
 class BaseUnit(ABC):
     policy: Policy
 
-    def __init__(self, bot: BotAI):
+    def __init__(self, bot: BotAI, map_data: "MapData"):
         self.bot: BotAI = bot
+        self.map_data: Optional["MapData"] = map_data
 
     @property_cache_once_per_frame
     def enemy_air_threats(self) -> Units:
@@ -102,6 +103,7 @@ class BaseUnit(ABC):
         priority_enemy_units: Units,
         unit: Unit,
         th_tag: int = 0,
+        grid: Optional[np.ndarray] = None,
     ) -> None:
         pass
 

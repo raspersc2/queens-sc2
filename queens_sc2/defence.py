@@ -1,3 +1,6 @@
+from typing import Optional
+
+import numpy as np
 from sc2 import BotAI
 from sc2.position import Point2
 from sc2.unit import Unit
@@ -8,8 +11,10 @@ from queens_sc2.policy import Policy
 
 
 class Defence(BaseUnit):
-    def __init__(self, bot: BotAI, defence_policy: Policy):
-        super().__init__(bot)
+    def __init__(
+        self, bot: BotAI, defence_policy: Policy, map_data: Optional["MapData"]
+    ):
+        super().__init__(bot, map_data)
         self.last_transfusion: float = 0.0
         self.policy = defence_policy
 
@@ -20,6 +25,7 @@ class Defence(BaseUnit):
         priority_enemy_units: Units,
         unit: Unit,
         th_tag: int = 0,
+        grid: Optional[np.ndarray] = None,
     ) -> None:
         if priority_enemy_units:
             await self.do_queen_micro(unit, priority_enemy_units)

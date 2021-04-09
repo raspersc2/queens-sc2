@@ -1,3 +1,6 @@
+from typing import Optional
+
+import numpy as np
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
 from sc2.unit import Unit
@@ -8,8 +11,10 @@ from queens_sc2.policy import Policy
 
 
 class Inject(BaseUnit):
-    def __init__(self, bot: BotAI, inject_policy: Policy):
-        super().__init__(bot)
+    def __init__(
+        self, bot: BotAI, inject_policy: Policy, map_data: Optional["MapData"]
+    ):
+        super().__init__(bot, map_data)
         self.policy = inject_policy
 
     async def handle_unit(
@@ -18,7 +23,8 @@ class Inject(BaseUnit):
         ground_threats_near_bases: Units,
         priority_enemy_units: Units,
         unit: Unit,
-        th_tag: int,
+        th_tag: int = 0,
+        grid: Optional[np.ndarray] = None,
     ) -> None:
 
         ths: Units = self.bot.townhalls.ready.tags_in([th_tag])

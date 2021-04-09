@@ -15,23 +15,62 @@ from queens_sc2.policy import DefenceQueen, CreepQueen, InjectQueen, Policy
 CREEP_POLICY: str = "creep_policy"
 DEFENCE_POLICY: str = "defence_policy"
 INJECT_POLICY: str = "inject_policy"
+USING_MAP_ANALYZER: str = "using_map_analyzer"
 
 
 class Queens:
-    def __init__(self, bot: BotAI, debug: bool = False, queen_policy: Dict = None):
+    # optional sc2 map analysis plug in https://github.com/eladyaniv01/SC2MapAnalysis
+    map_data: "MapData"
+    """
+    Main entry point for queens-sc2, with optional support for SC2 Map Analyzer
+    Example setup with map_analyzer:
+    (follow setup instructions at https://github.com/eladyaniv01/SC2MapAnalysis)
+    ```
+    from sc2 import BotAI
+    from MapAnalyzer import MapData
+    from queens_sc2.queens import Queens
+    
+    class ZergBot(BotAI):
+        async def on_start(self) -> None:
+            self.map_data = MapData(self)  # where self is your BotAI object from python-sc2
+            self.queens = Queens(
+                self, queen_policy=self.my_policy, using_map_analyzer=True, map_data=self.map_data
+            )
+            
+        async def on_step(self, iteration: int) -> None:
+            ground_grid: np.ndarray = self.map_data.get_pyastar_grid()
+            # you may want to add cost etc depending on your bot, 
+            # depending on usecase it may not need a fresh grid every step
+            await self.queens.manage_queens(iteration, grid=ground_grid)
+    
+    ```
+    """
+
+    def __init__(
+        self,
+        bot: BotAI,
+        debug: bool = False,
+        queen_policy: Dict = None,
+        using_map_analyzer: bool = False,
+        map_data: Optional["MapData"] = None,
+    ):
         self.bot: BotAI = bot
         self.debug: bool = debug
         self.creep_queen_tags: List[int] = []
         self.defence_queen_tags: List[int] = []
         self.inject_targets: Dict[int, int] = {}
-        self.policies: Dict[str, Policy] = self._read_queen_policy(queen_policy)
-        self.creep: Creep = Creep(bot, self.policies[CREEP_POLICY])
-        self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY])
-        self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY])
+        self.policies: Dict[str, Policy] = self._read_queen_policy(
+            queen_policy, using_map_analyzer
+        )
+        self.creep: Creep = Creep(bot, self.policies[CREEP_POLICY], map_data)
+        self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY], map_data)
+        self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY], map_data)
         self.transfuse_dict: Dict[int] = {}
         # key: unit tag, value: when to expire so unit can be transfused again
         self.targets_being_transfused: Dict[int, float] = {}
         self.creep.update_creep_map()
+        if map_data and using_map_analyzer:
+            self.map_data = map_data
 
     async def manage_queens(
         self,
@@ -39,6 +78,7 @@ class Queens:
         air_threats_near_bases: Optional[Units] = None,
         ground_threats_near_bases: Optional[Units] = None,
         queens: Optional[Units] = None,
+        grid: Optional[np.ndarray] = None,
     ) -> None:
         if self.defence.policy.pass_own_threats:
             air_threats: Units = air_threats_near_bases
@@ -62,7 +102,7 @@ class Queens:
         ):
             await self.creep.spread_existing_tumors()
 
-        await self._handle_queens(air_threats, ground_threats, queens)
+        await self._handle_queens(air_threats, ground_threats, queens, grid)
 
         if self.debug:
             await self._draw_debug_info()
@@ -87,8 +127,10 @@ class Queens:
                 if queens:
                     self._assign_queen_role(queens.first)
 
-    def set_new_policy(self, queen_policy, reset_roles: bool = True) -> None:
-        self.policies = self._read_queen_policy(queen_policy)
+    def set_new_policy(
+        self, queen_policy, reset_roles: bool = True, using_map_analyzer: bool = False
+    ) -> None:
+        self.policies = self._read_queen_policy(queen_policy, using_map_analyzer)
         if reset_roles:
             self.creep_queen_tags = []
             self.defence_queen_tags = []
@@ -105,7 +147,11 @@ class Queens:
         self.creep.set_creep_targets(creep_targets)
 
     async def _handle_queens(
-        self, air_threats: Units, ground_threats: Units, queens: Units
+        self,
+        air_threats: Units,
+        ground_threats: Units,
+        queens: Units,
+        grid: Optional[np.ndarray],
     ):
         all_close_threats = air_threats.extend(ground_threats)
         creep_priority_enemy_units: Units = self._get_priority_enemy_units(
@@ -117,7 +163,6 @@ class Queens:
         inject_priority_enemy_units: Units = self._get_priority_enemy_units(
             all_close_threats, self.inject.policy
         )
-        print(defence_priority_enemy_units)
         """ Main Queen loop """
         for queen in queens:
             self._assign_queen_role(queen)
@@ -134,14 +179,19 @@ class Queens:
                     inject_priority_enemy_units,
                     queen,
                     self.inject_targets[queen.tag],
+                    grid,
                 )
             elif queen.tag in self.creep_queen_tags:
                 await self.creep.handle_unit(
-                    air_threats, ground_threats, creep_priority_enemy_units, queen
+                    air_threats, ground_threats, creep_priority_enemy_units, queen, grid
                 )
             elif queen.tag in self.defence_queen_tags:
                 await self.defence.handle_unit(
-                    air_threats, ground_threats, defence_priority_enemy_units, queen
+                    air_threats,
+                    ground_threats,
+                    defence_priority_enemy_units,
+                    queen,
+                    grid,
                 )
 
     async def _handle_transfuse(self, queen: Unit) -> bool:
@@ -182,6 +232,8 @@ class Queens:
         )
         # work out which roles are of priority
         for key, value in self.policies.items():
+            if key == USING_MAP_ANALYZER:
+                continue
             if value.active and value.priority:
                 max_queens: int = (
                     value.priority if type(value.priority) == int else value.max_queens
@@ -239,7 +291,9 @@ class Queens:
                 queen_tag.append(tag)
         return len(queen_tag) > 0
 
-    def _read_queen_policy(self, queen_policy: Dict) -> Dict[str, Policy]:
+    def _read_queen_policy(
+        self, queen_policy: Dict, using_map_analyzer: bool
+    ) -> Dict[str, Policy]:
         """
         Read the queen policy the user passed in, add default
         params for missing values
@@ -337,6 +391,7 @@ class Queens:
         )
 
         policies = {
+            USING_MAP_ANALYZER: using_map_analyzer,
             CREEP_POLICY: creep_queen_policy,
             DEFENCE_POLICY: defence_queen_policy,
             INJECT_POLICY: inject_queen_policy,
