@@ -93,6 +93,7 @@ class ZergBot(BotAI):
                 "priority": True,
                 "distance_between_existing_tumors": 4,
                 "defend_against_ground": False,
+                "spread_style": "random",
             },
             "defence_queens": {
                 "attack_condition": lambda: self.units(UnitID.QUEEN).amount > 20,

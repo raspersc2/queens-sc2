@@ -242,7 +242,7 @@ class Creep(BaseUnit):
         # go backwards towards tumor till position is found
         for i in range(5):
             creep_pos: Point2 = pos.towards(from_pos, distance=i)
-            if self.bot.has_creep(creep_pos):
+            if self.bot.in_pathing_grid(creep_pos) and self.bot.has_creep(creep_pos):
                 return creep_pos
 
     def _find_closest_to_target(
