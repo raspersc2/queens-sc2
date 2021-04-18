@@ -242,6 +242,14 @@ class Creep(BaseUnit):
         # go backwards towards tumor till position is found
         for i in range(5):
             creep_pos: Point2 = pos.towards(from_pos, distance=i)
+            # check the position is within the map
+            if (
+                creep_pos.x < 0
+                or creep_pos.x > self.bot.game_info.map_size[0]
+                or creep_pos.y < 0
+                or creep_pos.y >= self.bot.game_info.map_size[1]
+            ):
+                continue
             if self.bot.in_pathing_grid(creep_pos) and self.bot.has_creep(creep_pos):
                 return creep_pos
 
