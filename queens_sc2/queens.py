@@ -147,7 +147,7 @@ class Queens:
         queens: Units,
         grid: Optional[np.ndarray],
     ):
-        all_close_threats = air_threats.extend(ground_threats)
+        all_close_threats = air_threats + ground_threats
         creep_priority_enemy_units: Units = self._get_priority_enemy_units(
             all_close_threats, self.creep.policy
         )
