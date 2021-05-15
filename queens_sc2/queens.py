@@ -166,7 +166,7 @@ class Queens:
                 if await self._handle_transfuse(queen):
                     continue
 
-            if queen.tag in self.inject_targets.keys():
+            if queen.tag in self.inject_targets:
                 await self.inject.handle_unit(
                     air_threats,
                     ground_threats,
