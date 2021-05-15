@@ -43,6 +43,20 @@ class Queens:
             await self.queens.manage_queens(iteration, grid=ground_grid)
     
     ```
+    
+    Though all features of queens-sc2 will work without SC2 Map Analyzer, for example:
+    ```
+    from sc2 import BotAI
+    from queens_sc2.queens import Queens
+    
+    class ZergBot(BotAI):
+        async def on_start(self) -> None:
+            self.queens = Queens(self, queen_policy=self.my_policy)
+            
+        async def on_step(self, iteration: int) -> None:
+            await self.queens.manage_queens(iteration)
+    
+    ```
     """
 
     def __init__(

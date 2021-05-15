@@ -58,7 +58,7 @@ queen_policy: Dict = {
       "min_distance_between_existing_tumors": int, # min distance a tumor is allowed to spread to
       "should_tumors_block_expansions": bool,
       "creep_targets": List[Point2], # library will cycle through these locations
-      "spread_style": str, # "targeted" is default, or "random"
+      "spread_style": str, # "targeted" is default, or "random". TIP: Use "random" when creep coverage is high to allow stuck tumors to spread
       "rally_point": Point2,
       "first_tumor_position": Optional[Point2],
       "prioritize_creep": Callable, # prioritize over defending bases if energy is available?
@@ -133,8 +133,31 @@ Creep targets can also be updated with a new `List` of locations. (By default th
 self.queens.update_creep_targets(path_to_third_base)
 ```
 
+### SC2 Map Analyzer support
+`queens-sc2` comes with completely optional support for [SC2 Map Analyzer](https://github.com/eladyaniv01/SC2MapAnalysis), currently this allows for improved creep spread. Though future improvements may also rely on MA.
+
+Example setup with MA (please follow instructions on the MA repo if needed):
+```python
+    from sc2 import BotAI
+    from MapAnalyzer import MapData
+    from queens_sc2.queens import Queens
+    
+    class ZergBot(BotAI):
+        async def on_start(self) -> None:
+            self.map_data = MapData(self)  # where self is your BotAI object from python-sc2
+            self.queens = Queens(
+                self, queen_policy=self.my_policy, map_data=self.map_data
+            )
+            
+        async def on_step(self, iteration: int) -> None:
+            ground_grid: np.ndarray = self.map_data.get_pyastar_grid()
+            # you may want to add cost etc depending on your bot, 
+            # depending on usecase it may not need a fresh grid every step
+            await self.queens.manage_queens(iteration, grid=ground_grid)
+```
+
 ### I only want creep spread
-Check the example in `creep_example.py` which shows how to set a creep policy and manage seperate groups of queens.
+Check the example in `creep_example.py` which shows how to set a creep policy and manage separate groups of queens.
 
 ## Contributing
 Pull requests are welcome, please submit an issue for feature requests or bug reports.
