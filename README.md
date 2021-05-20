@@ -31,13 +31,13 @@ class ZergBot(BotAI):
         self.queens.remove_unit(unit_tag)
         
     async def on_step(self, iteration: int) -> None:
-        # call the queen library to handle our queens
+        # call the queen library to handle our queen_control
         await self.queens.manage_queens(iteration)
         
-        # can optionally pass in a custom selection of queens, ie:
-        # queens: Units = self.units.tags_in(self.sc2_queen_tags)
-        # await self.queens.manage_queens(iteration, queens)
-        # if not the library will manage all queens automatically
+        # can optionally pass in a custom selection of queen_control, ie:
+        # queen_control: Units = self.units.tags_in(self.sc2_queen_tags)
+        # await self.queen_control.manage_queens(iteration, queen_control)
+        # if not the library will manage all queen_control automatically
         
         
         # the rest of my awesome bot ...
@@ -63,7 +63,7 @@ queen_policy: Dict = {
       "first_tumor_position": Optional[Point2],
       "prioritize_creep": Callable, # prioritize over defending bases if energy is available?
       "pass_own_threats": bool, # if set to True, library wont calculate enemy near bases, you should pass air and ground threats to manage_queens() method
-      "priority_defence_list", set[UnitID] # queens will prioritise defending these unit types over all other jobs
+      "priority_defence_list", set[UnitID] # queen_control will prioritise defending these unit types over all other jobs
   },
   "defence_queens": {
       "active": bool,
@@ -71,8 +71,8 @@ queen_policy: Dict = {
       "priority": Union[bool, int],
       "defend_against_air": bool,
       "defend_against_ground": bool,
-      "attack_condition": Callable, # only if you intend for defend queens to turn offensive
-      "attack_target": Point2, # used by offensive defence queens, otherwise not required
+      "attack_condition": Callable, # only if you intend for defend queen_control to turn offensive
+      "attack_target": Point2, # used by offensive defence queen_control, otherwise not required
       "rally_point": Point2,
       "pass_own_threats": bool,
       "priority_defence_list", set[UnitID]

@@ -1,44 +1,24 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Set, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 from sc2 import BotAI
 from sc2.constants import UNIT_COLOSSUS
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
-from sc2.position import Point2
+from sc2.position import Point2, Pointlike
 from sc2.unit import Unit
 from sc2.units import Units
 from scipy import spatial
 
 from queens_sc2.cache import property_cache_once_per_frame
+from queens_sc2.consts import (
+    CHANGELING_TYPES,
+    GROUND_TOWNHALL_TYPES,
+    QUEEN_TURN_RATE,
+    UNITS_TO_TRANSFUSE,
+)
 from queens_sc2.policy import Policy
-
-QUEEN_TURN_RATE: float = 999.8437
-UNITS_TO_TRANSFUSE: Set[UnitID] = {
-    UnitID.BROODLORD,
-    UnitID.CORRUPTOR,
-    UnitID.HYDRALISK,
-    UnitID.LURKER,
-    UnitID.MUTALISK,
-    UnitID.QUEEN,
-    UnitID.RAVAGER,
-    UnitID.ROACH,
-    UnitID.OVERSEER,
-    UnitID.OVERLORD,
-    UnitID.SWARMHOSTMP,
-    UnitID.ULTRALISK,
-    UnitID.SPINECRAWLER,
-    UnitID.SPORECRAWLER,
-    UnitID.HATCHERY,
-    UnitID.LAIR,
-    UnitID.HIVE,
-    UnitID.VIPER,
-    UnitID.INFESTOR,
-    UnitID.SPAWNINGPOOL,
-    UnitID.NYDUSCANAL,
-    UnitID.NYDUSNETWORK,
-}
 
 
 class BaseUnit(ABC):
@@ -81,15 +61,7 @@ class BaseUnit(ABC):
                         ground_units.filter(
                             lambda unit: not unit.is_hallucination
                             and not unit.is_burrowed
-                            and unit.type_id
-                            not in {
-                                UnitID.CHANGELING,
-                                UnitID.CHANGELINGMARINE,
-                                UnitID.CHANGELINGMARINESHIELD,
-                                UnitID.CHANGELINGZEALOT,
-                                UnitID.CHANGELINGZERGLING,
-                                UnitID.CHANGELINGZERGLINGWINGS,
-                            }
+                            and unit.type_id not in CHANGELING_TYPES
                         )
                     )
             threats = ground_threats
@@ -199,7 +171,7 @@ class BaseUnit(ABC):
                 if self.attack_ready(queen, target):
                     queen.attack(target)
                 else:
-                    # loose queens should try to rejoin the queen pack
+                    # loose queen_control should try to rejoin the queen pack
                     if own_close_queens.amount <= 3:
                         queen.move(queens.center)
                     # otherwise move forward between attacks, since Queen is slow and can get stuck behind each other
@@ -222,8 +194,9 @@ class BaseUnit(ABC):
         else:
             queen.attack(offensive_pos)
 
-    def _get_target_from_in_range_enemies(self, in_range_enemies: Units) -> Unit:
-        """ We get the queens to prioritise in range flying units """
+    @staticmethod
+    def _get_target_from_in_range_enemies(in_range_enemies: Units) -> Unit:
+        """ We get the queen_control to prioritise in range flying units """
         if in_range_enemies.flying:
             lowest_hp: Unit = min(
                 in_range_enemies.flying,
@@ -279,16 +252,7 @@ class BaseUnit(ABC):
 
     def position_near_enemy_townhall(self, pos: Point2) -> bool:
         close_townhalls: Units = self.bot.enemy_structures.filter(
-            lambda unit: unit.type_id
-            in {
-                UnitID.HATCHERY,
-                UnitID.HIVE,
-                UnitID.LAIR,
-                UnitID.NEXUS,
-                UnitID.COMMANDCENTER,
-                UnitID.ORBITALCOMMAND,
-                UnitID.PLANETARYFORTRESS,
-            }
+            lambda unit: unit.type_id in GROUND_TOWNHALL_TYPES
             and unit.distance_to(pos) < 20
         )
         return True if close_townhalls else False
@@ -367,3 +331,21 @@ class BaseUnit(ABC):
         return self.bot._distance_pos_to_pos(unit.position, target.position) <= (
             unit.radius + target.radius + unit_attack_range + bonus_distance
         )
+
+    def _find_closest_to_target(
+        self, target_pos: Point2, creep_grid: np.ndarray
+    ) -> Point2:
+        try:
+            nearest_spot = creep_grid[
+                np.sum(
+                    np.square(
+                        np.abs(creep_grid - np.array([[target_pos.x, target_pos.y]]))
+                    ),
+                    1,
+                ).argmin()
+            ]
+
+            pos = Point2(Pointlike((nearest_spot[0], nearest_spot[1])))
+            return pos
+        except ValueError:
+            return target_pos.towards(self.bot.start_location, 1)

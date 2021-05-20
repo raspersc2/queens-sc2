@@ -9,7 +9,7 @@ from sc2.position import Point2, Pointlike
 from sc2.unit import Unit
 from sc2.units import Units
 
-from queens_sc2.base_unit import BaseUnit
+from queens_sc2.queen_control.base_unit import BaseUnit
 from queens_sc2.policy import Policy
 
 TARGETED_CREEP_SPREAD: str = "TARGETED"
@@ -252,24 +252,6 @@ class Creep(BaseUnit):
                 continue
             if self.bot.in_pathing_grid(creep_pos) and self.bot.has_creep(creep_pos):
                 return creep_pos
-
-    def _find_closest_to_target(
-        self, target_pos: Point2, creep_grid: np.ndarray
-    ) -> Point2:
-        try:
-            nearest_spot = creep_grid[
-                np.sum(
-                    np.square(
-                        np.abs(creep_grid - np.array([[target_pos.x, target_pos.y]]))
-                    ),
-                    1,
-                ).argmin()
-            ]
-
-            pos = Point2(Pointlike((nearest_spot[0], nearest_spot[1])))
-            return pos
-        except ValueError:
-            return target_pos.towards(self.bot.start_location, 1)
 
     def _find_closest_to_target_using_path(
         self, target_pos: Point2, creep_grid: np.ndarray, pathing_grid: np.ndarray

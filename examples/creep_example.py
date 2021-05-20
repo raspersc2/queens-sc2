@@ -13,9 +13,9 @@ from queens_sc2.queens import Queens
 class ZergBot(BotAI):
     """
     This bot shows how to use the library for only creep spread.
-    There will be queens doing nothing, this is intentional to
+    There will be queen_control doing nothing, this is intentional to
     demonstrate the library does not have to take control of all
-    queens.
+    queen_control.
     """
 
     natural_pos: Point2
@@ -25,7 +25,7 @@ class ZergBot(BotAI):
         super().__init__()
         # SET TO FALSE BEFORE UPLOADING TO LADDER!
         self.debug: bool = True
-        # if passing a custom selection of queens to library, need to manage own queen grouping
+        # if passing a custom selection of queen_control to library, need to manage own queen grouping
         self.creep_queen_tags: Set[int] = set()
         self.max_creep_queens: int = 4
 
@@ -45,7 +45,7 @@ class ZergBot(BotAI):
         self.bo_step: int = 0
         self.natural_drone_tag: int = 0
 
-        # set up a policy that only enables creep queens
+        # set up a policy that only enables creep queen_control
         self.creep_queen_policy: Dict = {
             "creep_queens": {
                 "active": True,
@@ -66,13 +66,13 @@ class ZergBot(BotAI):
     async def on_unit_destroyed(self, unit_tag: int):
         # checks if unit is a queen or th, lib then handles appropriately
         self.queens.remove_unit(unit_tag)
-        # we need to handle our own selection of creep queens in this example
+        # we need to handle our own selection of creep queen_control in this example
         if unit_tag in self.creep_queen_tags:
             self.creep_queen_tags.remove(unit_tag)
 
     async def on_step(self, iteration: int) -> None:
         queens: Units = self.units(UnitID.QUEEN)
-        # work out if more creep queens are required
+        # work out if more creep queen_control are required
         if queens and len(self.creep_queen_tags) < self.max_creep_queens:
             queens_needed: int = self.max_creep_queens - len(self.creep_queen_tags)
             new_creep_queens: Units = queens.take(queens_needed)
@@ -82,15 +82,15 @@ class ZergBot(BotAI):
         # separate the queen units selection
         creep_queens: Units = queens.tags_in(self.creep_queen_tags)
         other_queens: Units = queens.tags_not_in(self.creep_queen_tags)
-        # call the queen library to handle our creep queens
+        # call the queen library to handle our creep queen_control
         await self.queens.manage_queens(iteration, creep_queens)
 
-        # we have full control of the other queens
+        # we have full control of the other queen_control
         for queen in other_queens:
             if queen.distance_to(self.game_info.map_center) > 12:
                 queen.attack(self.game_info.map_center)
 
-        # basic bot that only builds queens
+        # basic bot that only builds queen_control
         await self.do_basic_zergbot(iteration)
 
     @property

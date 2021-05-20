@@ -11,8 +11,8 @@ from queens_sc2.queens import Queens
 
 class ZergBot(BotAI):
     """
-    Example ZergBot, expands and then only builds queens
-    Demonstrates the sc2-queens lib in action
+    Example ZergBot, expands and then only builds queen_control
+    Demonstrates the sc2-queen_control lib in action
     """
 
     queen_policy: Dict
@@ -41,7 +41,7 @@ class ZergBot(BotAI):
         }
         # override defaults in the queens_sc2 lib by passing a policy:
         self.queens = Queens(self, debug=self.debug, queen_policy=self.queen_policy)
-        # debug spawn everything we need to test nydus queens
+        # debug spawn everything we need to test nydus queen_control
         await self._setup_nydus_scenario()
 
     async def on_unit_destroyed(self, unit_tag: int):
@@ -49,7 +49,7 @@ class ZergBot(BotAI):
         self.queens.remove_unit(unit_tag)
 
     async def on_step(self, iteration: int) -> None:
-        # call the queen library to handle our queens
+        # call the queen library to handle our queen_control
         await self.queens.manage_queens(iteration)
 
     async def _setup_nydus_scenario(self) -> None:

@@ -2,13 +2,11 @@ from typing import Optional
 
 import numpy as np
 from sc2 import BotAI
-from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from queens_sc2.cache import property_cache_once_per_frame
-from queens_sc2.base_unit import BaseUnit
+from queens_sc2.queen_control.base_unit import BaseUnit
 from queens_sc2.policy import Policy
 
 
@@ -17,16 +15,7 @@ class Defence(BaseUnit):
         self, bot: BotAI, defence_policy: Policy, map_data: Optional["MapData"]
     ):
         super().__init__(bot, map_data)
-        self.last_transfusion: float = 0.0
         self.policy = defence_policy
-
-    @property_cache_once_per_frame
-    def nydus_canals(self) -> Units:
-        return self.bot.structures(UnitID.NYDUSCANAL)
-
-    @property_cache_once_per_frame
-    def nydus_networks(self) -> Units:
-        return self.bot.structures(UnitID.NYDUSNETWORK)
 
     async def handle_unit(
         self,
@@ -37,12 +26,8 @@ class Defence(BaseUnit):
         th_tag: int = 0,
         grid: Optional[np.ndarray] = None,
     ) -> None:
-        if self.policy.should_nydus:
-            if self.nydus_canals and self.nydus_networks:
-                await self.do_nydus_micro(unit)
-            elif self.nydus_networks:
-                pass
-        elif priority_enemy_units:
+
+        if priority_enemy_units:
             await self.do_queen_micro(unit, priority_enemy_units)
         elif self.policy.attack_condition():
             await self.do_queen_offensive_micro(unit, self.policy.attack_target)
@@ -53,12 +38,9 @@ class Defence(BaseUnit):
         elif unit.distance_to(self.policy.rally_point) > 12:
             unit.move(self.policy.rally_point)
 
-    async def do_nydus_micro(self, queen: Unit) -> None:
-        pass
-
     def set_attack_target(self, target: Point2) -> None:
         """
-        Set an attack target if defence queens are going to be offensive
+        Set an attack target if defence queen_control are going to be offensive
         """
         self.policy.attack_target = target
 

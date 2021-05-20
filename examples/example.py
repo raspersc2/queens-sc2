@@ -12,8 +12,8 @@ from queens_sc2.queens import Queens
 
 class ZergBot(BotAI):
     """
-    Example ZergBot, expands and then only builds queens
-    Demonstrates the sc2-queens lib in action
+    Example ZergBot, expands and then only builds queen_control
+    Demonstrates the sc2-queen_control lib in action
     """
 
     mid_game_queen_policy: Dict
@@ -110,11 +110,11 @@ class ZergBot(BotAI):
         self.queens.remove_unit(unit_tag)
 
     async def on_step(self, iteration: int) -> None:
-        # call the queen library to handle our queens
-        # can optionally pass in a custom selection of queens, ie:
-        # queens: Units = self.units(UnitID.QUEEN).tags_in(self.sc2_queen_tags)
+        # call the queen library to handle our queen_control
+        # can optionally pass in a custom selection of queen_control, ie:
+        # queen_control: Units = self.units(UnitID.QUEEN).tags_in(self.sc2_queen_tags)
         await self.queens.manage_queens(iteration)
-        # can repurpose queens by passing a new policy
+        # can repurpose queen_control by passing a new policy
         if not self.switched_queen_policy and self.time > 480:
             # adjust queen policy, allow stuck tumors to escape
             self.queens.set_new_policy(self.mid_game_queen_policy)
@@ -122,9 +122,9 @@ class ZergBot(BotAI):
 
         # can update creep targets
         # if iteration == 10:
-        #     self.queens.update_creep_targets([self.enemy_start_locations[0]])
+        #     self.queen_control.update_creep_targets([self.enemy_start_locations[0]])
 
-        # basic bot that only builds queens
+        # basic bot that only builds queen_control
         await self.do_basic_zergbot(iteration)
 
     @property

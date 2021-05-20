@@ -1,10 +1,64 @@
+from typing import Set
 from enum import Enum, auto
+from sc2.ids.unit_typeid import UnitTypeId as UnitID
+
+CREEP_POLICY: str = "creep_policy"
+DEFENCE_POLICY: str = "defence_policy"
+INJECT_POLICY: str = "inject_policy"
+NYDUS_POLICY: str = "nydus_policy"
+QUEEN_TURN_RATE: float = 999.8437
 
 
 class QueenRoles(Enum):
     Creep = auto()
     Defence = auto()
     Inject = auto()
+
+
+CHANGELING_TYPES: Set[UnitID] = {
+    UnitID.CHANGELING,
+    UnitID.CHANGELINGMARINE,
+    UnitID.CHANGELINGMARINESHIELD,
+    UnitID.CHANGELINGZEALOT,
+    UnitID.CHANGELINGZERGLING,
+    UnitID.CHANGELINGZERGLINGWINGS,
+}
+
+GROUND_TOWNHALL_TYPES: Set[UnitID] = {
+    UnitID.HATCHERY,
+    UnitID.HIVE,
+    UnitID.LAIR,
+    UnitID.NEXUS,
+    UnitID.COMMANDCENTER,
+    UnitID.ORBITALCOMMAND,
+    UnitID.PLANETARYFORTRESS,
+}
+
+
+UNITS_TO_TRANSFUSE: Set[UnitID] = {
+    UnitID.BROODLORD,
+    UnitID.CORRUPTOR,
+    UnitID.HYDRALISK,
+    UnitID.LURKER,
+    UnitID.MUTALISK,
+    UnitID.QUEEN,
+    UnitID.RAVAGER,
+    UnitID.ROACH,
+    UnitID.OVERSEER,
+    UnitID.OVERLORD,
+    UnitID.SWARMHOSTMP,
+    UnitID.ULTRALISK,
+    UnitID.SPINECRAWLER,
+    UnitID.SPORECRAWLER,
+    UnitID.HATCHERY,
+    UnitID.LAIR,
+    UnitID.HIVE,
+    UnitID.VIPER,
+    UnitID.INFESTOR,
+    UnitID.SPAWNINGPOOL,
+    UnitID.NYDUSCANAL,
+    UnitID.NYDUSNETWORK,
+}
 
 
 class QueenPolicyKeys(Enum):

@@ -1,6 +1,7 @@
 from abc import ABC
 from typing import Callable, List, Set
 
+from queens_sc2.consts import QueenRoles
 from sc2.position import Point2
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 
@@ -74,3 +75,9 @@ class CreepQueen(Policy):
 class InjectQueen(Policy):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+
+class NydusQueen(Policy):
+    def __init__(self, steal_from: Set[QueenRoles], **kwargs):
+        super().__init__(**kwargs)
+        self.steal_from = steal_from

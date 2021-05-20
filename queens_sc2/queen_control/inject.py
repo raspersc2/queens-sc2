@@ -6,7 +6,7 @@ from sc2.ids.ability_id import AbilityId
 from sc2.unit import Unit
 from sc2.units import Units
 
-from queens_sc2.base_unit import BaseUnit
+from queens_sc2.queen_control.base_unit import BaseUnit
 from queens_sc2.policy import Policy
 
 

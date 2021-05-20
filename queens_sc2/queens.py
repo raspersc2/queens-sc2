@@ -6,33 +6,36 @@ from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2, Point3
 from sc2.unit import Unit
 from sc2.units import Units
-from queens_sc2.consts import QueenRoles
-from queens_sc2.creep import Creep
-from queens_sc2.defence import Defence
-from queens_sc2.inject import Inject
-from queens_sc2.policy import DefenceQueen, CreepQueen, InjectQueen, Policy
-
-CREEP_POLICY: str = "creep_policy"
-DEFENCE_POLICY: str = "defence_policy"
-INJECT_POLICY: str = "inject_policy"
+from queens_sc2.consts import (
+    CREEP_POLICY,
+    DEFENCE_POLICY,
+    INJECT_POLICY,
+    NYDUS_POLICY,
+    QueenRoles,
+)
+from queens_sc2.queen_control.creep import Creep
+from queens_sc2.queen_control.defence import Defence
+from queens_sc2.queen_control.inject import Inject
+from queens_sc2.queen_control.nydus import Nydus
+from queens_sc2.policy import DefenceQueen, CreepQueen, InjectQueen, NydusQueen, Policy
 
 
 class Queens:
     # optional sc2 map analysis plug in https://github.com/eladyaniv01/SC2MapAnalysis
     map_data: "MapData"
     """
-    Main entry point for queens-sc2, with optional support for SC2 Map Analyzer
+    Main entry point for queen_control-sc2, with optional support for SC2 Map Analyzer
     Example setup with map_analyzer:
     (follow setup instructions at https://github.com/eladyaniv01/SC2MapAnalysis)
     ```
     from sc2 import BotAI
     from MapAnalyzer import MapData
-    from queens_sc2.queens import Queens
+    from queens_sc2.queen_control import Queens
     
     class ZergBot(BotAI):
         async def on_start(self) -> None:
             self.map_data = MapData(self)  # where self is your BotAI object from python-sc2
-            self.queens = Queens(
+            self.queen_control = Queens(
                 self, queen_policy=self.my_policy, map_data=self.map_data
             )
             
@@ -40,21 +43,21 @@ class Queens:
             ground_grid: np.ndarray = self.map_data.get_pyastar_grid()
             # you may want to add cost etc depending on your bot, 
             # depending on usecase it may not need a fresh grid every step
-            await self.queens.manage_queens(iteration, grid=ground_grid)
+            await self.queen_control.manage_queens(iteration, grid=ground_grid)
     
     ```
     
-    Though all features of queens-sc2 will work without SC2 Map Analyzer, for example:
+    Though all features of queen_control-sc2 will work without SC2 Map Analyzer, for example:
     ```
     from sc2 import BotAI
-    from queens_sc2.queens import Queens
+    from queens_sc2.queen_control import Queens
     
     class ZergBot(BotAI):
         async def on_start(self) -> None:
-            self.queens = Queens(self, queen_policy=self.my_policy)
+            self.queen_control = Queens(self, queen_policy=self.my_policy)
             
         async def on_step(self, iteration: int) -> None:
-            await self.queens.manage_queens(iteration)
+            await self.queen_control.manage_queens(iteration)
     
     ```
     """
@@ -72,10 +75,13 @@ class Queens:
         self.creep_queen_tags: List[int] = []
         self.defence_queen_tags: List[int] = []
         self.inject_targets: Dict[int, int] = {}
+        self.nydus_queen_tags: List[int] = []
+
         self.policies: Dict[str, Policy] = self._read_queen_policy(queen_policy)
         self.creep: Creep = Creep(bot, self.policies[CREEP_POLICY], map_data)
         self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY], map_data)
         self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY], map_data)
+        self.nydus: Nydus = Nydus(bot, self.policies[NYDUS_POLICY], map_data)
         self.transfuse_dict: Dict[int] = {}
         # key: unit tag, value: when to expire so unit can be transfused again
         self.targets_being_transfused: Dict[int, float] = {}
@@ -150,6 +156,7 @@ class Queens:
         self.creep.update_policy(self.policies[CREEP_POLICY])
         self.defence.update_policy(self.policies[DEFENCE_POLICY])
         self.inject.update_policy(self.policies[INJECT_POLICY])
+        self.nydus.update_policy(self.policies[NYDUS_POLICY])
 
     def update_attack_target(self, attack_target: Point2) -> None:
         self.defence.set_attack_target(attack_target)
@@ -228,8 +235,8 @@ class Queens:
 
     def _assign_queen_role(self, queen: Unit) -> None:
         """
-        If queen does not have role, work out from the policy
-        what role it should have
+        If queen does not have role, work out from the policy what role it should have
+        If 2 nydus worms are present, steal queen_control from the relevant role set in policy
         :param queen:
         :type queen:
         :return:
@@ -291,14 +298,14 @@ class Queens:
             ):
                 self.creep_queen_tags.append(queen.tag)
                 self.assigned_queen_tags.add(queen.tag)
-            # leftover queens get assigned to defence regardless, otherwise queen would do nothing
+            # leftover queen_control get assigned to defence regardless, otherwise queen would do nothing
             else:
                 self.defence_queen_tags.append(queen.tag)
                 self.assigned_queen_tags.add(queen.tag)
 
     def _queen_has_role(self, queen: Unit) -> bool:
         """
-        Checks if we know about queen, if not assign a role
+        Checks if we know about queen
         """
         return queen.tag in self.assigned_queen_tags
 
@@ -317,6 +324,7 @@ class Queens:
         cq_policy = _queen_policy.get("creep_queens", {})
         dq_policy = _queen_policy.get("defence_queens", {})
         iq_policy = _queen_policy.get("inject_queens", {})
+        nq_policy = _queen_policy.get("nydus_queens", {})
 
         creep_queen_policy = CreepQueen(
             active=cq_policy.get("active", True),
@@ -387,7 +395,7 @@ class Queens:
             ),
             priority_defence_list=dq_policy.get("priority_defence_list", set()),
             should_nydus=dq_policy.get("should_nydus", True),
-            # basically will set all defence queens to nydus by default
+            # basically will set all defence queen_control to nydus by default
             max_nydus_queens=dq_policy.get("max_nydus_queens", 100),
         )
 
@@ -404,16 +412,33 @@ class Queens:
             priority_defence_list=iq_policy.get("priority_defence_list", set()),
         )
 
+        nydus_queen_policy = NydusQueen(
+            active=iq_policy.get("active", True),
+            max_queens=iq_policy.get("max", 100),
+            priority=iq_policy.get("priority", False),
+            # user might want the queen to come home to defend
+            defend_against_air=iq_policy.get("defend_against_air", False),
+            defend_against_ground=iq_policy.get("defend_against_ground", False),
+            pass_own_threats=iq_policy.get(
+                "pass_own_threats",
+                False,
+            ),
+            priority_defence_list=iq_policy.get("priority_defence_list", set()),
+            steal_from=nq_policy.get("steal_from", {QueenRoles.Defence}),
+        )
+
         policies = {
             CREEP_POLICY: creep_queen_policy,
             DEFENCE_POLICY: defence_queen_policy,
             INJECT_POLICY: inject_queen_policy,
+            NYDUS_POLICY: nydus_queen_policy,
         }
 
         return policies
 
+    @staticmethod
     def _get_priority_enemy_units(
-        self, enemy_threats: Optional[Units], policy: Policy
+        enemy_threats: Optional[Units], policy: Policy
     ) -> Optional[Units]:
         if enemy_threats and len(policy.priority_defence_list) != 0:
             priority_threats: Units = enemy_threats(policy.priority_defence_list)
