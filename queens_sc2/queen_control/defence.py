@@ -25,6 +25,8 @@ class Defence(BaseUnit):
         unit: Unit,
         th_tag: int = 0,
         grid: Optional[np.ndarray] = None,
+        nydus_networks: Optional[Units] = None,
+        nydus_canals: Optional[Units] = None,
     ) -> None:
 
         if priority_enemy_units:

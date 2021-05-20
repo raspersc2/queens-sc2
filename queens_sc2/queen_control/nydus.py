@@ -6,7 +6,7 @@ from sc2.units import Units
 import numpy as np
 
 from queens_sc2.queen_control.base_unit import BaseUnit
-from queens_sc2.policy import NydusQueen, Policy
+from queens_sc2.policy import Policy
 
 
 class Nydus(BaseUnit):
@@ -22,6 +22,8 @@ class Nydus(BaseUnit):
         unit: Unit,
         th_tag: int = 0,
         grid: Optional[np.ndarray] = None,
+        nydus_networks: Optional[Units] = None,
+        nydus_canals: Optional[Units] = None,
     ) -> None:
         pass
 

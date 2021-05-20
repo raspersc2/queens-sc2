@@ -6,6 +6,7 @@ from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2, Point3
 from sc2.unit import Unit
 from sc2.units import Units
+from queens_sc2.cache import property_cache_once_per_frame
 from queens_sc2.consts import (
     CREEP_POLICY,
     DEFENCE_POLICY,
@@ -88,6 +89,14 @@ class Queens:
         self.creep.update_creep_map()
         if map_data:
             self.map_data = map_data
+
+    @property_cache_once_per_frame
+    def nydus_canals(self) -> Units:
+        return self.bot.structures(UnitID.NYDUSCANAL)
+
+    @property_cache_once_per_frame
+    def nydus_networks(self) -> Units:
+        return self.bot.structures(UnitID.NYDUSNETWORK)
 
     async def manage_queens(
         self,
@@ -216,6 +225,17 @@ class Queens:
                     grid=grid,
                 )
 
+            elif queen.tag in self.nydus_queen_tags:
+                await self.nydus.handle_unit(
+                    air_threats,
+                    ground_threats,
+                    defence_priority_enemy_units,
+                    queen,
+                    grid=grid,
+                    nydus_networks=self.nydus_networks,
+                    nydus_canals=self.nydus_canals,
+                )
+
     async def _handle_transfuse(self, queen: Unit) -> bool:
         """ Deal with a queen transfusing """
         # clear out targets from the dict after a short interval so they may be transfused again
@@ -242,6 +262,9 @@ class Queens:
         :return:
         :rtype:
         """
+        # If this queen has a role, we might want to steal it for the nydus
+        self._check_nydus_role(queen)
+
         if self._queen_has_role(queen):
             return
         # if there are priority clashes, revert to:
@@ -302,6 +325,46 @@ class Queens:
             else:
                 self.defence_queen_tags.append(queen.tag)
                 self.assigned_queen_tags.add(queen.tag)
+
+    def _check_nydus_role(self, queen: Unit) -> None:
+        """
+        If there are nydus's we may want to steal this queen for the nydus
+        Or if this queen already has a nydus role, we should remove the nydus role if required
+        """
+        steal_from: Set[UnitID] = self.nydus.policy.steal_from
+        # check if queens should be assigned to nydus role, is there a network and a canal?
+        if (
+            self.nydus_networks
+            and self.nydus_canals
+            and self.nydus.policy.active
+            and len(self.nydus_queen_tags) < self.nydus.policy.max_queens
+            and queen.tag not in self.nydus_queen_tags
+            and queen.tag in self.assigned_queen_tags
+        ):
+            # queen can only be in one role
+            role_to_check: QueenRoles = (
+                QueenRoles.Defence
+                if queen.tag in self.defence_queen_tags
+                else (
+                    QueenRoles.Creep
+                    if queen.tag in self.creep_queen_tags
+                    else QueenRoles.Defence
+                )
+            )
+            # queen role is in one of the allowed roles to steal from
+            if role_to_check in steal_from:
+                self.remove_unit(queen.tag)
+                self.assigned_queen_tags.remove(queen.tag)
+                self.nydus_queen_tags.append(queen.tag)
+
+        # what if canal died? make sure the queen gets out of the network and reassign the queen
+        if (
+            self.nydus_networks
+            and not self.nydus_canals
+            and queen.tag in self.nydus_queen_tags
+        ):
+            self.nydus_queen_tags.remove(queen.tag)
+            self._assign_queen_role(queen)
 
     def _queen_has_role(self, queen: Unit) -> bool:
         """
@@ -413,17 +476,17 @@ class Queens:
         )
 
         nydus_queen_policy = NydusQueen(
-            active=iq_policy.get("active", True),
-            max_queens=iq_policy.get("max", 100),
-            priority=iq_policy.get("priority", False),
+            active=nq_policy.get("active", True),
+            max_queens=nq_policy.get("max", 100),
+            priority=nq_policy.get("priority", False),
             # user might want the queen to come home to defend
-            defend_against_air=iq_policy.get("defend_against_air", False),
-            defend_against_ground=iq_policy.get("defend_against_ground", False),
-            pass_own_threats=iq_policy.get(
+            defend_against_air=nq_policy.get("defend_against_air", False),
+            defend_against_ground=nq_policy.get("defend_against_ground", False),
+            pass_own_threats=nq_policy.get(
                 "pass_own_threats",
                 False,
             ),
-            priority_defence_list=iq_policy.get("priority_defence_list", set()),
+            priority_defence_list=nq_policy.get("priority_defence_list", set()),
             steal_from=nq_policy.get("steal_from", {QueenRoles.Defence}),
         )
 
@@ -482,17 +545,24 @@ class Queens:
             size=13,
             color=(0, 255, 255),
         )
-
         self.bot.client.debug_text_screen(
-            f"Creep Coverage: {str(self.creep.creep_coverage)}%",
+            f"Nydus Queens Amount: {str(len(self.nydus_queen_tags))}, "
+            f"Policy Amount: {str(self.policies[NYDUS_POLICY].max_queens)}",
             pos=(0.2, 0.66),
             size=13,
             color=(0, 255, 255),
         )
 
         self.bot.client.debug_text_screen(
-            f"Priority defend against: {str(self.defence.policy.priority_defence_list)}",
+            f"Creep Coverage: {str(self.creep.creep_coverage)}%",
             pos=(0.2, 0.68),
+            size=13,
+            color=(0, 255, 255),
+        )
+
+        self.bot.client.debug_text_screen(
+            f"Priority defend against: {str(self.defence.policy.priority_defence_list)}",
+            pos=(0.2, 0.70),
             size=13,
             color=(0, 255, 255),
         )
@@ -505,8 +575,10 @@ class Queens:
                     self._draw_on_world(queen.position, f"CREEP {queen.tag}")
                 if queen.tag in self.defence_queen_tags:
                     self._draw_on_world(queen.position, f"DEFENCE {queen.tag}")
-                if queen.tag in self.inject_targets.keys():
+                if queen.tag in self.inject_targets:
                     self._draw_on_world(queen.position, f"INJECT {queen.tag}")
+                if queen.tag in self.nydus_queen_tags:
+                    self._draw_on_world(queen.position, f"NYDUS {queen.tag}")
 
         tumors: Units = self.bot.structures.filter(
             lambda s: s.type_id == UnitID.CREEPTUMORBURROWED

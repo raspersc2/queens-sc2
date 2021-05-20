@@ -55,6 +55,8 @@ class Creep(BaseUnit):
         unit: Unit,
         th_tag: int = 0,
         grid: Optional[np.ndarray] = None,
+        nydus_networks: Optional[Units] = None,
+        nydus_canals: Optional[Units] = None,
     ) -> None:
 
         should_spread_creep: bool = self._check_queen_can_spread_creep(unit)

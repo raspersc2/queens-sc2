@@ -52,6 +52,18 @@ class ZergBot(BotAI):
         # call the queen library to handle our queen_control
         await self.queens.manage_queens(iteration)
 
+        # some rudimentary chat debug, made for a specific scenario
+        messages = self.state.chat
+        if len(messages) > 0:
+            chat = messages[0].message.upper()
+            commands = chat.split()
+            first_command = commands[0]
+
+            if first_command == "KILL_CANAL":
+                must_die = self.structures(UnitID.NYDUSCANAL)
+                if must_die:
+                    await self.client.debug_kill_unit(must_die.tags)
+
     async def _setup_nydus_scenario(self) -> None:
         await self.client.debug_create_unit(
             [

@@ -25,6 +25,8 @@ class Inject(BaseUnit):
         unit: Unit,
         th_tag: int = 0,
         grid: Optional[np.ndarray] = None,
+        nydus_networks: Optional[Units] = None,
+        nydus_canals: Optional[Units] = None,
     ) -> None:
 
         ths: Units = self.bot.townhalls.ready.tags_in([th_tag])

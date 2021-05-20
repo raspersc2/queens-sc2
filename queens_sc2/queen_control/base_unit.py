@@ -76,6 +76,8 @@ class BaseUnit(ABC):
         unit: Unit,
         th_tag: int = 0,
         grid: Optional[np.ndarray] = None,
+        nydus_networks: Optional[Units] = None,
+        nydus_canals: Optional[Units] = None,
     ) -> None:
         pass
 
