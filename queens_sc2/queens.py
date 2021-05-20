@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 import numpy as np
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
@@ -68,6 +68,7 @@ class Queens:
     ):
         self.bot: BotAI = bot
         self.debug: bool = debug
+        self.assigned_queen_tags: Set[int] = set()
         self.creep_queen_tags: List[int] = []
         self.defence_queen_tags: List[int] = []
         self.inject_targets: Dict[int, int] = {}
@@ -140,6 +141,7 @@ class Queens:
     def set_new_policy(self, queen_policy, reset_roles: bool = True) -> None:
         self.policies = self._read_queen_policy(queen_policy)
         if reset_roles:
+            self.assigned_queen_tags = set()
             self.creep_queen_tags = []
             self.defence_queen_tags = []
             self.inject_targets.clear()
@@ -263,10 +265,13 @@ class Queens:
             th: Unit = ths_without_queen.closest_to(queen)
             if th.tag not in self.inject_targets.values():
                 self.inject_targets[queen.tag] = th.tag
+                self.assigned_queen_tags.add(queen.tag)
         elif QueenRoles.Creep in priorities:
             self.creep_queen_tags.append(queen.tag)
+            self.assigned_queen_tags.add(queen.tag)
         elif QueenRoles.Defence in priorities:
             self.defence_queen_tags.append(queen.tag)
+            self.assigned_queen_tags.add(queen.tag)
         # if we get to here, then assign to inject, then creep then defence
         else:
             if (
@@ -278,28 +283,23 @@ class Queens:
                     # pick th closest to queen
                     th: Unit = ths_without_queen.closest_to(queen)
                     self.inject_targets[queen.tag] = th.tag
+                    self.assigned_queen_tags.add(queen.tag)
             elif (
                 len(self.creep_queen_tags) < self.policies[CREEP_POLICY].max_queens
                 and self.policies[CREEP_POLICY].active
             ):
                 self.creep_queen_tags.append(queen.tag)
+                self.assigned_queen_tags.add(queen.tag)
             # leftover queens get assigned to defence regardless, otherwise queen would do nothing
             else:
                 self.defence_queen_tags.append(queen.tag)
+                self.assigned_queen_tags.add(queen.tag)
 
     def _queen_has_role(self, queen: Unit) -> bool:
         """
         Checks if we know about queen, if not assign a role
         """
-        queen_tag = []
-        for tag in [
-            self.creep_queen_tags,
-            self.defence_queen_tags,
-            self.inject_targets.keys(),
-        ]:
-            if queen.tag in tag:
-                queen_tag.append(tag)
-        return len(queen_tag) > 0
+        return queen.tag in self.assigned_queen_tags
 
     def _read_queen_policy(self, queen_policy: Dict) -> Dict[str, Policy]:
         """
