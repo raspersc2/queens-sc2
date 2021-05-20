@@ -31,12 +31,16 @@ class DefenceQueen(Policy):
         attack_condition: Callable,
         attack_target: Point2,
         rally_point: Point2,
+        should_nydus: bool,
+        max_nydus_queens: int,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.attack_condition = attack_condition
         self.attack_target = attack_target
         self.rally_point = rally_point
+        self.should_nydus = should_nydus
+        self.max_nydus_queens = max_nydus_queens
 
 
 class CreepQueen(Policy):

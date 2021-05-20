@@ -136,6 +136,7 @@ class Queens:
                 # also assign the dead townhall's queen a new role if she is alive
                 queens: Units = self.bot.units(UnitID.QUEEN).tags_in([k])
                 if queens:
+                    self.assigned_queen_tags.remove(queens.first.tag)
                     self._assign_queen_role(queens.first)
 
     def set_new_policy(self, queen_policy, reset_roles: bool = True) -> None:
@@ -385,6 +386,9 @@ class Queens:
                 False,
             ),
             priority_defence_list=dq_policy.get("priority_defence_list", set()),
+            should_nydus=dq_policy.get("should_nydus", True),
+            # basically will set all defence queens to nydus by default
+            max_nydus_queens=dq_policy.get("max_nydus_queens", 100),
         )
 
         inject_queen_policy = InjectQueen(
