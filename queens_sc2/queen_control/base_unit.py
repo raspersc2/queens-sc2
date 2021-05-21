@@ -1,6 +1,6 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 from sc2 import BotAI
@@ -129,7 +129,9 @@ class BaseUnit(ABC):
 
         return step_time + turn_time + move_time >= unit.weapon_cooldown / 22.4
 
-    async def do_queen_micro(self, queen: Unit, enemy: Units) -> None:
+    async def do_queen_micro(
+        self, queen: Unit, enemy: Units, grid: Optional[np.ndarray] = None
+    ) -> None:
         if not queen:
             return
 
@@ -140,6 +142,8 @@ class BaseUnit(ABC):
             if target:
                 if self.attack_ready(queen, target):
                     queen.attack(target)
+                elif self.map_data and grid is not None:
+                    await self.move_towards_safe_spot(queen, grid)
                 else:
                     distance: float = queen.ground_range + queen.radius + target.radius
                     move_to: Point2 = target.position.towards(queen, distance)
@@ -258,6 +262,48 @@ class BaseUnit(ABC):
             and unit.distance_to(pos) < 20
         )
         return True if close_townhalls else False
+
+    @staticmethod
+    def is_position_safe(
+        grid: np.ndarray,
+        position: Point2,
+        weight_safety_limit: float = 1.0,
+    ) -> bool:
+        """
+        Checks if the current position is dangerous by comparing against default_grid_weights
+        @param grid: Grid we want to check
+        @param position: Position of the unit etc
+        @param weight_safety_limit: The threshold at which we declare the position safe
+        @return:
+        """
+        position = position.rounded
+        weight: float = grid[position.x, position.y]
+        # np.inf check if drone is pathing near a spore crawler
+        return weight == np.inf or weight <= weight_safety_limit
+
+    def find_closest_safe_spot(
+        self, from_pos: Point2, grid: np.ndarray, radius: int = 15
+    ) -> Point2:
+        all_safe: np.ndarray = self.map_data.lowest_cost_points_array(
+            from_pos, radius, grid
+        )
+        # type hint wants a numpy array but doesn't actually need one - this is faster
+        all_dists = spatial.distance.cdist(all_safe, [from_pos], "sqeuclidean")
+        min_index = np.argmin(all_dists)
+
+        # safe because the shape of all_dists (N x 1) means argmin will return an int
+        return Point2(all_safe[min_index])
+
+    async def move_towards_safe_spot(
+        self, unit: Unit, grid: np.ndarray, radius: int = 7
+    ) -> None:
+
+        safe_spot: Point2 = self.find_closest_safe_spot(unit.position, grid, radius)
+        path: List[Point2] = self.map_data.pathfind(
+            unit.position, safe_spot, grid, sensitivity=6
+        )
+        if path:
+            unit.move(path[0])
 
     # noinspection PyMethodMayBeStatic
     def range_vs_target(self, unit, target) -> float:

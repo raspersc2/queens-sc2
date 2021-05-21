@@ -33,18 +33,22 @@ class Inject(BaseUnit):
         if ths:
             th: Unit = ths.first
             if priority_enemy_units:
-                await self.do_queen_micro(unit, priority_enemy_units)
+                await self.do_queen_micro(unit, priority_enemy_units, grid)
             elif self.policy.defend_against_air and air_threats_near_bases:
-                await self.do_queen_micro(unit, air_threats_near_bases)
+                await self.do_queen_micro(unit, air_threats_near_bases, grid)
             elif self.policy.defend_against_ground and ground_threats_near_bases:
-                await self.do_queen_micro(unit, ground_threats_near_bases)
+                await self.do_queen_micro(unit, ground_threats_near_bases, grid)
             else:
                 if unit.energy >= 25:
                     unit(AbilityId.EFFECT_INJECTLARVA, th)
                 # control the queen between injects
                 else:
                     await self._control_inject_queen_near_base(
-                        air_threats_near_bases, ground_threats_near_bases, unit, th
+                        air_threats_near_bases,
+                        ground_threats_near_bases,
+                        unit,
+                        th,
+                        grid,
                     )
 
     def update_policy(self, policy: Policy) -> None:
@@ -56,6 +60,7 @@ class Inject(BaseUnit):
         ground_threats_near_bases: Units,
         queen: Unit,
         townhall: Unit,
+        grid: Optional[np.ndarray] = None,
     ) -> None:
         """
         Between injects, we want the Queen to have the following behavior:
@@ -77,7 +82,7 @@ class Inject(BaseUnit):
             )
 
         if close_threats:
-            await self.do_queen_micro(queen, close_threats)
+            await self.do_queen_micro(queen, close_threats, grid)
         # every now and then, check queen is not in the mineral field blocking workers
         elif self.bot.state.game_loop % 64 == 0:
             close_mfs: Units = self.bot.mineral_field.filter(

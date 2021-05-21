@@ -75,7 +75,7 @@ class Nydus(BaseUnit):
 
         if canal and network:
             await self._manage_nydus_attack(
-                canal, network, unit, unit_distance_to_target
+                canal, network, unit, unit_distance_to_target, grid
             )
 
     def set_attack_target(self, target: Point2) -> None:
@@ -91,7 +91,12 @@ class Nydus(BaseUnit):
         self.policy = policy
 
     async def _manage_nydus_attack(
-        self, canal: Unit, network: Unit, unit: Unit, unit_distance_to_target: float
+        self,
+        canal: Unit,
+        network: Unit,
+        unit: Unit,
+        unit_distance_to_target: float,
+        grid: Optional[np.ndarray] = None,
     ) -> None:
         """
         Get a Queen through the nydus and out the other side!
@@ -132,6 +137,8 @@ class Nydus(BaseUnit):
                 if target:
                     if self.attack_ready(unit, target):
                         unit.attack(target)
+                    elif self.map_data and grid is not None:
+                        await self.move_towards_safe_spot(unit, grid)
                     else:
                         distance: float = (
                             unit.ground_range + unit.radius + target.radius

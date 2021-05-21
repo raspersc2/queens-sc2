@@ -30,13 +30,19 @@ class Defence(BaseUnit):
     ) -> None:
 
         if priority_enemy_units:
-            await self.do_queen_micro(unit, priority_enemy_units)
+            await self.do_queen_micro(unit, priority_enemy_units, grid)
         elif self.policy.attack_condition():
             await self.do_queen_offensive_micro(unit, self.policy.attack_target)
         elif self.policy.defend_against_ground and ground_threats_near_bases:
-            await self.do_queen_micro(unit, ground_threats_near_bases)
+            await self.do_queen_micro(unit, ground_threats_near_bases, grid)
         elif self.policy.defend_against_air and air_threats_near_bases:
-            await self.do_queen_micro(unit, air_threats_near_bases)
+            await self.do_queen_micro(unit, air_threats_near_bases, grid)
+        elif (
+            self.map_data
+            and grid is not None
+            and not self.is_position_safe(grid, unit.position)
+        ):
+            await self.move_towards_safe_spot(unit, grid)
         elif unit.distance_to(self.policy.rally_point) > 12:
             unit.move(self.policy.rally_point)
 

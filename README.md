@@ -1,6 +1,7 @@
 # queens-sc2
 queens-sc2 is a small customizable library to aid development of sc2 zerg bots developed with [python-sc2](https://github.com/BurnySc2/python-sc2). A challenge when developing zerg bots is effective queen management since queens have various roles including injecting, creep, defence and nydusing. 
-queens-sc2 was created to allow zerg authors to rapidly develop a bot without being encumbered by queen management. The main idea of queens-sc2 is the author creates a policy which the library reads and handles appropriately, at any point in the game a new policy can be defined and queen roles can be dynamically reassigned. Meanwhile, if a Nydus policy is setup then depending on the policy Queens can be stole from other roles to automatically go through the Nydus with some default micro (including creep / transfusing) on the other side.
+queens-sc2 was created to allow zerg authors to rapidly develop a bot without being encumbered by queen management.
+Using policies that can be updated at any time `queens-sc2` provides a lot of flexibility, whether that would be aggressive nydus play, defensive queens or a mass creep style
 
 ## Prerequisites 
 It is expected the user has already installed [python-sc2](https://github.com/BurnySc2/python-sc2), the only other library used in this project is [numpy](https://numpy.org/).
@@ -57,7 +58,8 @@ queen_policy: Dict = {
       "distance_between_queen_tumors": int, # when deciding to lay a tumor, queen should leave this much distance between existing tumors
       "min_distance_between_existing_tumors": int, # min distance a tumor is allowed to spread to
       "should_tumors_block_expansions": bool,
-      "creep_targets": List[Point2], # library will cycle through these locations
+      # If using Map Analyzer, a list of start and end goals can be passed in for creep targets, creep will then follow these paths
+      "creep_targets": Union[List[Point2], List[Tuple[Point2, Point2]]], # library will cycle through these locations
       "spread_style": str, # "targeted" is default, or "random". TIP: Use "random" when creep coverage is high to allow stuck tumors to spread
       "rally_point": Point2,
       "first_tumor_position": Optional[Point2],
