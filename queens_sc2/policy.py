@@ -47,7 +47,7 @@ class CreepQueen(Policy):
         distance_between_queen_tumors: int,
         min_distance_between_existing_tumors: int,
         should_tumors_block_expansions: bool,
-        creep_targets: Union[List[Point2], Tuple[Point2, Point2]],
+        creep_targets: Union[List[Point2], List[Tuple[Point2, Point2]]],
         spread_style: str,
         rally_point: Point2,
         target_perc_coverage: float,

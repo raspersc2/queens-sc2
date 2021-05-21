@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
@@ -180,7 +180,9 @@ class Queens:
         self.defence.set_attack_target(attack_target)
         self.nydus.set_attack_target(attack_target)
 
-    def update_creep_targets(self, creep_targets: List[Point2]) -> None:
+    def update_creep_targets(
+        self, creep_targets: Union[List[Point2], List[Tuple[Point2, Point2]]]
+    ) -> None:
         self.creep.set_creep_targets(creep_targets)
 
     def update_nydus_target(self, nydus_target: Point2) -> None:

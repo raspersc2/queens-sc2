@@ -1,7 +1,8 @@
 import functools
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, Union
 
 import numpy as np
+from loguru import logger
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
@@ -9,8 +10,8 @@ from sc2.position import Point2, Pointlike
 from sc2.unit import Unit
 from sc2.units import Units
 
-from queens_sc2.queen_control.base_unit import BaseUnit
 from queens_sc2.policy import Policy
+from queens_sc2.queen_control.base_unit import BaseUnit
 
 TARGETED_CREEP_SPREAD: str = "TARGETED"
 TIME_TO_CLEAR_PENDING_CREEP_POSITION: int = 20
@@ -103,7 +104,9 @@ class Creep(BaseUnit):
     def _check_queen_can_spread_creep(self, queen: Unit) -> bool:
         return queen.energy >= 25 and self.policy.prioritize_creep()
 
-    def set_creep_targets(self, creep_targets: List[Point2]) -> None:
+    def set_creep_targets(
+        self, creep_targets: Union[List[Point2], List[Tuple[Point2, Point2]]]
+    ) -> None:
         self.policy.creep_targets = creep_targets
 
     async def spread_creep(self, queen: Unit, grid: Optional[np.ndarray]) -> None:
@@ -256,10 +259,34 @@ class Creep(BaseUnit):
                 return creep_pos
 
     def _find_closest_to_target_using_path(
-        self, target_pos: Point2, creep_grid: np.ndarray, pathing_grid: np.ndarray
+        self,
+        target_pos: Union[Point2, Tuple[Point2, Point2]],
+        creep_grid: np.ndarray,
+        pathing_grid: np.ndarray,
     ) -> Optional[Point2]:
+        # just a list of targets, we path from start location to target
+        if isinstance(target_pos, Point2):
+            start_point: Point2 = self.bot.start_location
+            end_point: Point2 = target_pos
+        # list of tuples containing start and end of path, ensure user passed it in correctly
+        elif (
+            isinstance(target_pos, tuple)
+            and len(target_pos) == 2
+            and isinstance(target_pos[0], Point2)
+            and isinstance(target_pos[1], Point2)
+        ):
+            start_point: Point2 = target_pos[0]
+            end_point: Point2 = target_pos[1]
+        # the target_pos makes no sense, provide default values so creep spread still works
+        else:
+            start_point: Point2 = self.bot.start_location
+            end_point: Point2 = self.bot.enemy_start_locations[0]
+            logger.warning(
+                "queens-sc2 was unable to recognise creep_targets from the policy, using basic creep path"
+            )
+
         path: List[Point2] = self.map_data.pathfind(
-            self.bot.start_location, target_pos, pathing_grid
+            start_point, end_point, pathing_grid, sensitivity=6
         )
         if path:
             # find first point in path that has no creep
