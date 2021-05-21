@@ -130,6 +130,10 @@ class Queens:
 
         await self._handle_queens(air_threats, ground_threats, queens, grid)
 
+        if self.nydus_canals.ready:
+            for nydus in self.nydus_canals.ready:
+                nydus(AbilityId.UNLOADALL_NYDUSWORM)
+
         if self.debug:
             await self._draw_debug_info()
 
@@ -139,6 +143,9 @@ class Queens:
         ]
         self.defence_queen_tags = [
             tag for tag in self.defence_queen_tags if tag != unit_tag
+        ]
+        self.nydus_queen_tags = [
+            tag for tag in self.nydus_queen_tags if tag != unit_tag
         ]
         try:
             del self.inject_targets[unit_tag]
@@ -153,6 +160,8 @@ class Queens:
                 if queens:
                     self.assigned_queen_tags.remove(queens.first.tag)
                     self._assign_queen_role(queens.first)
+        if unit_tag in self.assigned_queen_tags:
+            self.assigned_queen_tags.remove(unit_tag)
 
     def set_new_policy(self, queen_policy, reset_roles: bool = True) -> None:
         self.policies = self._read_queen_policy(queen_policy)
@@ -169,9 +178,13 @@ class Queens:
 
     def update_attack_target(self, attack_target: Point2) -> None:
         self.defence.set_attack_target(attack_target)
+        self.nydus.set_attack_target(attack_target)
 
     def update_creep_targets(self, creep_targets: List[Point2]) -> None:
         self.creep.set_creep_targets(creep_targets)
+
+    def update_nydus_target(self, nydus_target: Point2) -> None:
+        self.nydus.set_nydus_target(nydus_target)
 
     async def _handle_queens(
         self,
@@ -354,17 +367,21 @@ class Queens:
             # queen role is in one of the allowed roles to steal from
             if role_to_check in steal_from:
                 self.remove_unit(queen.tag)
-                self.assigned_queen_tags.remove(queen.tag)
+                self.assigned_queen_tags.add(queen.tag)
                 self.nydus_queen_tags.append(queen.tag)
 
-        # what if canal died? make sure the queen gets out of the network and reassign the queen
+        # TODO: Work out how to handle aborting a Nydus:
+        #   - Policy option for when Queen goes back into canal if too much danger?
+        #   - What if the canal dies and the queen has an escape path?
+        # At the moment assigning a Queen to Nydus is a one way trip
+        # Here we only handle, Queens being assigned to Nydus and then the canal getting destroyed in the meantime
         if (
-            self.nydus_networks
+            queen.tag in self.nydus_queen_tags
+            and queen.distance_to(self.nydus.policy.nydus_target) > 50
             and not self.nydus_canals
-            and queen.tag in self.nydus_queen_tags
         ):
-            self.nydus_queen_tags.remove(queen.tag)
-            self._assign_queen_role(queen)
+            # removing should be enough, queen then should be given a new role automatically
+            self.remove_unit(queen.tag)
 
     def _queen_has_role(self, queen: Unit) -> bool:
         """
@@ -457,9 +474,6 @@ class Queens:
                 False,
             ),
             priority_defence_list=dq_policy.get("priority_defence_list", set()),
-            should_nydus=dq_policy.get("should_nydus", True),
-            # basically will set all defence queen_control to nydus by default
-            max_nydus_queens=dq_policy.get("max_nydus_queens", 100),
         )
 
         inject_queen_policy = InjectQueen(
@@ -479,7 +493,7 @@ class Queens:
             active=nq_policy.get("active", True),
             max_queens=nq_policy.get("max", 100),
             priority=nq_policy.get("priority", False),
-            # user might want the queen to come home to defend
+            # TODO: user might want the queen to come home to defend, atm this does nothing
             defend_against_air=nq_policy.get("defend_against_air", False),
             defend_against_ground=nq_policy.get("defend_against_ground", False),
             pass_own_threats=nq_policy.get(
@@ -487,6 +501,13 @@ class Queens:
                 False,
             ),
             priority_defence_list=nq_policy.get("priority_defence_list", set()),
+            attack_target=nq_policy.get(
+                "attack_target", self.bot.enemy_start_locations[0]
+            ),
+            nydus_move_function=nq_policy.get("nydus_move_function", None),
+            nydus_target=nq_policy.get(
+                "nydus_target", self.bot.enemy_start_locations[0]
+            ),
             steal_from=nq_policy.get("steal_from", {QueenRoles.Defence}),
         )
 

@@ -6,7 +6,10 @@ from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.player import Bot
 from sc2.position import Point2
 from sc2.unit import Unit
+from queens_sc2.consts import QueenRoles
 from queens_sc2.queens import Queens
+
+from MapAnalyzer import MapData
 
 
 class ZergBot(BotAI):
@@ -18,6 +21,7 @@ class ZergBot(BotAI):
     queen_policy: Dict
     natural_pos: Point2
     queens: Queens
+    map_data: MapData
 
     def __init__(self) -> None:
         super().__init__()
@@ -30,17 +34,27 @@ class ZergBot(BotAI):
             drone.gather(closest_patch)
 
     async def on_start(self) -> None:
+        self.map_data = MapData(self)
         self.queen_policy = {
             "creep_queens": {
                 "active": False,
             },
-            "defence_queens": {"should_nydus": True},
+            "defence_queens": {"active": True},
             "inject_queens": {
                 "active": False,
             },
+            "nydus_queens": {
+                "nydus_target": self.game_info.map_center,
+                "steal_from": {QueenRoles.Defence},
+            },
         }
         # override defaults in the queens_sc2 lib by passing a policy:
-        self.queens = Queens(self, debug=self.debug, queen_policy=self.queen_policy)
+        self.queens = Queens(
+            self,
+            debug=self.debug,
+            queen_policy=self.queen_policy,
+            map_data=self.map_data,
+        )
         # debug spawn everything we need to test nydus queen_control
         await self._setup_nydus_scenario()
 
@@ -59,10 +73,20 @@ class ZergBot(BotAI):
             commands = chat.split()
             first_command = commands[0]
 
+            if first_command == "MAKE_CANAL":
+                await self.client.debug_create_unit(
+                    [[UnitID.NYDUSCANAL, 1, self.game_info.map_center, 1]]
+                )
+
             if first_command == "KILL_CANAL":
                 must_die = self.structures(UnitID.NYDUSCANAL)
                 if must_die:
                     await self.client.debug_kill_unit(must_die.tags)
+
+            if first_command == "ENEMY_1":
+                await self.client.debug_create_unit(
+                    [[UnitID.MARINE, 5, self.game_info.map_center, 2]]
+                )
 
     async def _setup_nydus_scenario(self) -> None:
         await self.client.debug_create_unit(
@@ -75,9 +99,6 @@ class ZergBot(BotAI):
                 ]
             ]
         )
-        await self.client.debug_create_unit(
-            [[UnitID.NYDUSCANAL, 1, self.game_info.map_center, 1]]
-        )
         await self.client.debug_create_unit([[UnitID.QUEEN, 5, self.start_location, 1]])
 
 
@@ -88,7 +109,7 @@ class BlankBot(BotAI):
 
 if __name__ == "__main__":
     # Local game
-    random_map = random.choice(["EverDreamLE"])
+    random_map = random.choice(["SubmarineLE"])
     bot = Bot(Race.Zerg, ZergBot())
     blank_bot = Bot(Race.Terran, BlankBot())
     run_game(

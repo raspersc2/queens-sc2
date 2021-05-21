@@ -32,16 +32,12 @@ class DefenceQueen(Policy):
         attack_condition: Callable,
         attack_target: Point2,
         rally_point: Point2,
-        should_nydus: bool,
-        max_nydus_queens: int,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.attack_condition = attack_condition
         self.attack_target = attack_target
         self.rally_point = rally_point
-        self.should_nydus = should_nydus
-        self.max_nydus_queens = max_nydus_queens
 
 
 class CreepQueen(Policy):
@@ -78,6 +74,16 @@ class InjectQueen(Policy):
 
 
 class NydusQueen(Policy):
-    def __init__(self, steal_from: Set[QueenRoles], **kwargs):
+    def __init__(
+        self,
+        attack_target: Point2,
+        nydus_move_function: Callable,
+        nydus_target: Point2,
+        steal_from: Set[QueenRoles],
+        **kwargs,
+    ):
         super().__init__(**kwargs)
+        self.attack_target = attack_target
+        self.nydus_move_function = nydus_move_function
+        self.nydus_target = nydus_target
         self.steal_from = steal_from
