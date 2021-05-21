@@ -1,6 +1,6 @@
 # queens-sc2
-queens-sc2 is a small customizable library to aid development of sc2 zerg bots developed with [python-sc2](https://github.com/BurnySc2/python-sc2). A challenge when developing zerg bots is effective queen management since queens have various roles including injecting, creep and defence. 
-queens-sc2 was created to allow zerg authors to rapidly develop a bot without being encumbered by queen management. The main idea of queens-sc2 is the author creates a policy which the library reads and handles appropriately.
+queens-sc2 is a small customizable library to aid development of sc2 zerg bots developed with [python-sc2](https://github.com/BurnySc2/python-sc2). A challenge when developing zerg bots is effective queen management since queens have various roles including injecting, creep, defence and nydusing. 
+queens-sc2 was created to allow zerg authors to rapidly develop a bot without being encumbered by queen management. The main idea of queens-sc2 is the author creates a policy which the library reads and handles appropriately, at any point in the game a new policy can be defined and queen roles can be dynamically reassigned. Meanwhile, if a Nydus policy is setup then depending on the policy Queens can be stole from other roles to automatically go through the Nydus with some default micro (including creep / transfusing) on the other side.
 
 ## Prerequisites 
 It is expected the user has already installed [python-sc2](https://github.com/BurnySc2/python-sc2), the only other library used in this project is [numpy](https://numpy.org/).
@@ -63,7 +63,7 @@ queen_policy: Dict = {
       "first_tumor_position": Optional[Point2],
       "prioritize_creep": Callable, # prioritize over defending bases if energy is available?
       "pass_own_threats": bool, # if set to True, library wont calculate enemy near bases, you should pass air and ground threats to manage_queens() method
-      "priority_defence_list", set[UnitID] # queen_control will prioritise defending these unit types over all other jobs
+      "priority_defence_list": Set[UnitID] # queen_control will prioritise defending these unit types over all other jobs
   },
   "defence_queens": {
       "active": bool,
@@ -75,7 +75,7 @@ queen_policy: Dict = {
       "attack_target": Point2, # used by offensive defence queen_control, otherwise not required
       "rally_point": Point2,
       "pass_own_threats": bool,
-      "priority_defence_list", set[UnitID]
+      "priority_defence_list": Set[UnitID]
   },
   "inject_queens": {
       "active": bool,
@@ -84,7 +84,20 @@ queen_policy: Dict = {
       "defend_against_air": bool,
       "defend_against_ground": bool,
       "pass_own_threats": bool,
-      "priority_defence_list", set[UnitID]
+      "priority_defence_list": Set[UnitID]
+    },
+  "nydus_queens": {
+      "active": bool,
+      "max": int,
+      "priority": Union[bool, int],
+      "defend_against_air": bool,
+      "defend_against_ground": bool,
+      "pass_own_threats": bool,
+      "priority_defence_list": Set[UnitID],
+      "attack_target": Point2,
+      "nydus_move_function": Optional[Callable], # completely optional, nydus will still work without this
+      "nydus_target": Point2, # not the nydus canal itself, but the target area we want to attack once out of the canal
+      "steal_from": Set[QueenRoles], # found in `queens_sc2.consts`, should contain any of: QueenRoles.Creep, QueenRoles.Defence, QueenRoles.Inject
     },
 }
 ```
@@ -133,8 +146,13 @@ Creep targets can also be updated with a new `List` of locations. (By default th
 self.queens.update_creep_targets(path_to_third_base)
 ```
 
+If using nyduses, make sure the nydus target is updated:
+```python
+self.queens.update_nydus_target(self.enemy_start_locations[0])
+```
+
 ### SC2 Map Analyzer support
-`queens-sc2` comes with completely optional support for [SC2 Map Analyzer](https://github.com/eladyaniv01/SC2MapAnalysis), currently this allows for improved creep spread. Though future improvements may also rely on MA.
+`queens-sc2` comes with completely optional support for [SC2 Map Analyzer](https://github.com/eladyaniv01/SC2MapAnalysis), currently this allows for improved creep spread. Though future improvements may rely on MA, queens-sc2 is fully functional without MA support.
 
 Example setup with MA (please follow instructions on the MA repo if needed):
 ```python
