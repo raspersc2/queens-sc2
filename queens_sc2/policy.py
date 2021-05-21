@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Callable, List, Set
+from typing import Callable, List, Set, Tuple, Union
 
 from queens_sc2.consts import QueenRoles
 from sc2.position import Point2
@@ -47,7 +47,7 @@ class CreepQueen(Policy):
         distance_between_queen_tumors: int,
         min_distance_between_existing_tumors: int,
         should_tumors_block_expansions: bool,
-        creep_targets: List[Point2],
+        creep_targets: Union[List[Point2], Tuple[Point2, Point2]],
         spread_style: str,
         rally_point: Point2,
         target_perc_coverage: float,
