@@ -426,8 +426,6 @@ class Queens:
             should_tumors_block_expansions=cq_policy.get(
                 "should_tumors_block_expansions", False
             ),
-            # TODO: It would perhaps be nice for creep targets to contain a Tuple(from_pos, to_pos)
-            #   This is helpful when using pathing to spread creep
             creep_targets=cq_policy.get(
                 "creep_targets",
                 self._path_expansion_distances(),
@@ -435,9 +433,7 @@ class Queens:
             spread_style=cq_policy.get("spread_style", "targeted"),  # targeted
             rally_point=cq_policy.get(
                 "rally_point",
-                self.bot.main_base_ramp.bottom_center.towards(
-                    self.bot.game_info.map_center, 3
-                ),
+                self.bot.start_location,
             ),
             target_perc_coverage=cq_policy.get(
                 "target_perc_coverage",
@@ -467,9 +463,7 @@ class Queens:
             ),
             rally_point=dq_policy.get(
                 "rally_point",
-                self.bot.main_base_ramp.bottom_center.towards(
-                    self.bot.game_info.map_center, 3
-                ),
+                self.bot.start_location,
             ),
             pass_own_threats=dq_policy.get(
                 "pass_own_threats",
