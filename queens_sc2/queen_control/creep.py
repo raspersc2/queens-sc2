@@ -65,19 +65,19 @@ class Creep(BaseUnit):
         self.creep_targets = self.policy.creep_targets
 
         if priority_enemy_units:
-            await self.do_queen_micro(unit, priority_enemy_units)
+            await self.do_queen_micro(unit, priority_enemy_units, grid)
         elif (
             self.policy.defend_against_air
             and air_threats_near_bases
             and not should_spread_creep
         ):
-            await self.do_queen_micro(unit, air_threats_near_bases)
+            await self.do_queen_micro(unit, air_threats_near_bases, grid)
         elif (
             self.policy.defend_against_ground
             and ground_threats_near_bases
             and not should_spread_creep
         ):
-            await self.do_queen_micro(unit, ground_threats_near_bases)
+            await self.do_queen_micro(unit, ground_threats_near_bases, grid)
         elif self.bot.enemy_units and self.bot.enemy_units.filter(
             # custom filter to replace in_attack_range_of so that it can be used with memory units
             lambda enemy: enemy.position.distance_to(unit)
@@ -90,6 +90,12 @@ class Creep(BaseUnit):
             and self.creep_coverage < self.policy.target_perc_coverage
         ):
             await self.spread_creep(unit, grid)
+        elif (
+            self.map_data
+            and grid is not None
+            and not self.is_position_safe(grid, unit.position)
+        ):
+            await self.move_towards_safe_spot(unit, grid)
         elif unit.distance_to(self.policy.rally_point) > 7:
             if len(unit.orders) > 0:
                 if unit.orders[0].ability.button_name != "CreepTumor":
@@ -142,21 +148,21 @@ class Creep(BaseUnit):
                 self.policy.should_tumors_block_expansions is False
                 and self.position_blocks_expansion(pos)
             )
-            or self.position_near_enemy(pos)
             or self.position_near_enemy_townhall(pos)
             or self.position_near_nydus_worm(pos)
             or self._existing_tumors_too_close(pos)
         ):
             should_lay_tumor = False
-            self.creep_target_index += 1
 
         if should_lay_tumor:
             queen(AbilityId.BUILD_CREEPTUMOR_QUEEN, pos)
             self.pending_positions.append((pos, self.bot.time))
-            self.creep_target_index += 1
+
         # can't lay tumor right now, go back home
         elif queen.distance_to(self.policy.rally_point) > 7:
             queen.move(self.policy.rally_point)
+
+        self.creep_target_index += 1
 
     async def spread_existing_tumors(self):
         tumors: Units = self.bot.structures.filter(
@@ -309,7 +315,7 @@ class Creep(BaseUnit):
         """ Will the creep tumor block expansion """
         blocks_expansion: bool = False
         for expansion in self.bot.expansion_locations_list:
-            if position.distance_to(expansion) < 6:
+            if position.distance_to(expansion) < 4:
                 blocks_expansion = True
                 break
         return blocks_expansion
