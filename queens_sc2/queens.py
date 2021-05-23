@@ -264,7 +264,7 @@ class Queens:
         )
         if transfuse_target and transfuse_target is not queen:
             queen(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
-            self.targets_being_transfused[transfuse_target.tag] = self.bot.time + 0.4
+            self.targets_being_transfused[transfuse_target.tag] = self.bot.time + 0.5
             return True
         return False
 
@@ -430,7 +430,7 @@ class Queens:
                 "creep_targets",
                 self._path_expansion_distances(),
             ),
-            spread_style=cq_policy.get("spread_style", "targeted"),  # targeted
+            spread_style=cq_policy.get("spread_style", "targeted"),
             rally_point=cq_policy.get(
                 "rally_point",
                 self.bot.start_location,
@@ -487,7 +487,7 @@ class Queens:
 
         nydus_queen_policy = NydusQueen(
             active=nq_policy.get("active", True),
-            max_queens=nq_policy.get("max", 100),
+            max_queens=nq_policy.get("max", 2),
             priority=nq_policy.get("priority", False),
             # TODO: user might want the queen to come home to defend, atm this does nothing
             defend_against_air=nq_policy.get("defend_against_air", False),

@@ -36,6 +36,7 @@ class Creep(BaseUnit):
         # keep track of positions where queen is on route to lay a tumor
         # tuple where first element is position, and second the time it was added so we can clear it out if need be
         self.pending_positions: List[Tuple[Point2, float]] = []
+        self.active_tumors: Dict[int:float] = {}
 
     @property
     @functools.lru_cache()
@@ -166,13 +167,21 @@ class Creep(BaseUnit):
             all_tumors_abilities = await self.bot.get_available_abilities(tumors)
             for i, abilities in enumerate(all_tumors_abilities):
                 tumor = tumors[i]
+
                 if not tumor.is_idle and isinstance(tumor.order_target, Point2):
                     self.used_tumors.add(tumor.tag)
                     continue
 
                 if AbilityId.BUILD_CREEPTUMOR_TUMOR in abilities:
+                    if tumor.tag not in self.active_tumors:
+                        self.active_tumors[tumor.tag] = self.bot.time
+
                     should_lay_tumor: bool = True
-                    if self.policy.spread_style.upper() == TARGETED_CREEP_SPREAD:
+                    if (
+                        self.policy.spread_style.upper() == TARGETED_CREEP_SPREAD
+                        # tumors have 10 seconds to find a targeted spot before resorting to random placement
+                        and self.active_tumors[tumor.tag] > self.bot.time - 10
+                    ):
                         pos: Point2 = self._find_existing_tumor_placement(
                             tumor.position
                         )
@@ -187,6 +196,7 @@ class Creep(BaseUnit):
                         ) or self.position_near_enemy(pos):
                             should_lay_tumor = False
                         if should_lay_tumor:
+                            self.active_tumors.pop(tumor.tag)
                             tumor(AbilityId.BUILD_CREEPTUMOR_TUMOR, pos)
 
     def _clear_pending_positions(self) -> None:
