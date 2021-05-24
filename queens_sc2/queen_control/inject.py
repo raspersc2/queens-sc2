@@ -69,7 +69,7 @@ class Inject(BaseUnit):
         - Stay out of the mineral line, incase bot has custom mineral gathering (don't block workers)
         """
         # don't do anything else, just move the queen back
-        if queen.distance_to(townhall) > 7:
+        if queen.distance_to(townhall) > 8:
             queen.move(townhall)
             return
 
@@ -78,13 +78,13 @@ class Inject(BaseUnit):
         # so save calculation otherwise
         if air_threats_near_bases or ground_threats_near_bases:
             close_threats = self.bot.enemy_units.filter(
-                lambda enemy: enemy.position.distance_to(townhall) < 10
+                lambda enemy: enemy.position.distance_to(townhall) < 12
             )
 
         if close_threats:
             await self.do_queen_micro(queen, close_threats, grid)
         # every now and then, check queen is not in the mineral field blocking workers
-        elif self.bot.state.game_loop % 64 == 0:
+        elif self.bot.state.game_loop % 32 == 0:
             close_mfs: Units = self.bot.mineral_field.filter(
                 lambda mf: mf.distance_to(townhall) < 8
             )

@@ -129,7 +129,14 @@ class Nydus(BaseUnit):
             else:
                 # queen has enough energy for a transfuse and a tumor, so put a tumor down where she currently is
                 if unit.energy >= 75 and self.bot.has_creep(unit.position):
-                    unit(AbilityId.BUILD_CREEPTUMOR_QUEEN, unit.position)
+                    # check if there are too many tumors already
+                    tumors: Units = self.bot.structures.filter(
+                        lambda s: s.type_id
+                        in {UnitID.CREEPTUMORBURROWED, UnitID.CREEPTUMORQUEEN}
+                        and s.distance_to(unit) < 15
+                    )
+                    if tumors.amount < 7:
+                        unit(AbilityId.BUILD_CREEPTUMOR_QUEEN, unit.position)
                 if unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR_QUEEN):
                     return
                 # get priority target, ie: target the flying enemies first
