@@ -112,7 +112,7 @@ class Nydus(BaseUnit):
 
         # worm has popped somewhere, but we are waiting for it to finish, move next to network ready to go
         # usually we want queens last in anyway, so this gives a chance for other units to enter the nydus
-        if not canal.is_ready:
+        if not canal.is_ready and unit.distance_to(canal) > 30:
             unit.move(network.position)
         # both canal and network must be ready
         else:
