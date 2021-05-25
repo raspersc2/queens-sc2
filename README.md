@@ -4,7 +4,7 @@ queens-sc2 was created to allow zerg authors to rapidly develop a bot without be
 Using policies that can be updated at any time `queens-sc2` provides a lot of flexibility, whether that would be aggressive nydus play, defensive queens or a mass creep style
 
 ## Prerequisites 
-It is expected the user has already installed [python-sc2](https://github.com/BurnySc2/python-sc2), the only other library used in this project is [numpy](https://numpy.org/).
+It is expected the user has already installed [python-sc2](https://github.com/BurnySc2/python-sc2), `queens-sc2` also relies on numpy and scipy.
 
 ## Getting started
 Clone or download this repository and put the `queens_sc2` directory in your bot folder like so:
@@ -14,6 +14,8 @@ MyBot
 │   └───queens_sc2 library files
 └───your bot files and directories
 ```
+
+Alternatively feel free to download [QueenBot](https://aiarena.net/bots/201/) from the AI Arena ladder and use that as a starting point for your own bot.
 
 ## Example bot file
 Out of the box, the library will run without a policy but remember you have to build the queens yourself:
@@ -60,7 +62,7 @@ queen_policy: Dict = {
       "should_tumors_block_expansions": bool,
       # If using Map Analyzer, a list of start and end goals can be passed in for creep targets, creep will then follow these paths
       "creep_targets": Union[List[Point2], List[Tuple[Point2, Point2]]], # library will cycle through these locations
-      "spread_style": str, # "targeted" is default, or "random". TIP: Use "random" when creep coverage is high to allow stuck tumors to spread
+      "spread_style": str, # "targeted" is default, or "random".
       "rally_point": Point2,
       "first_tumor_position": Optional[Point2],
       "prioritize_creep": Callable, # prioritize over defending bases if energy is available?
@@ -88,6 +90,7 @@ queen_policy: Dict = {
       "pass_own_threats": bool,
       "priority_defence_list": Set[UnitID]
     },
+    # NOTE: Nydus Queens only become active when a Canal is placed on the map, so assign Nydus Queens to another role then set that role in `steal_from`.
   "nydus_queens": {
       "active": bool,
       "max": int,
@@ -142,19 +145,19 @@ Attack target for offensive defence queens can be updated:
 self.queens.update_attack_target(self.enemy_start_locations[0])
 ```
 
-Creep targets can also be updated with a new `List` of locations. (By default this is set to all expansion locations)
+Creep targets can also be updated with a new `List` of locations. (By default this is set to all expansion locations) Or if using Map Analyzer you can pass in a `List` of `Tuple`'s, where each `Tuple` contains a starting `Point2` and target `Point2`, `queens-sc2` will then try to creep along the ground path.
 ```python
 # path should ideally contain no creep points
 self.queens.update_creep_targets(path_to_third_base)
 ```
 
-If using nyduses, make sure the nydus target is updated:
+If using nyduses, make sure the nydus target is updated, this is not where the Nydus should be placed, rather the focal attack point from the Nydus itself:
 ```python
 self.queens.update_nydus_target(self.enemy_start_locations[0])
 ```
 
 ### SC2 Map Analyzer support
-`queens-sc2` comes with completely optional support for [SC2 Map Analyzer](https://github.com/eladyaniv01/SC2MapAnalysis), currently this allows for improved creep spread. Though future improvements may rely on MA, queens-sc2 is fully functional without MA support.
+`queens-sc2` comes with completely optional support for [SC2 Map Analyzer](https://github.com/eladyaniv01/SC2MapAnalysis), currently this allows for improved creep spread and better Queen control.
 
 Example setup with MA (please follow instructions on the MA repo if needed):
 ```python
