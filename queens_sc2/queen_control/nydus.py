@@ -123,7 +123,7 @@ class Nydus(BaseUnit):
                     self.policy.nydus_move_function(unit, self.policy.nydus_target)
                 # manage this ourselves
                 else:
-                    unit.smart(network)
+                    network(AbilityId.LOAD_NYDUSNETWORK, unit)
             # else queen should micro on the other side
             # remember that all queens already have transfuse code baked in
             else:
@@ -160,7 +160,6 @@ class Nydus(BaseUnit):
                 elif (
                     self.enemy_ground_units_near_nydus_target.amount == 0
                     and self.enemy_flying_units_near_nydus_target.amount == 0
-                    and self.enemy_structures_near_nydus_target.amount == 0
                 ):
                     await self.do_queen_offensive_micro(unit, self.policy.attack_target)
                 # there are targets, but nothing in range so move towards the nydus target
