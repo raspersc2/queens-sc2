@@ -202,7 +202,7 @@ class BaseUnit(ABC):
 
     @staticmethod
     def _get_target_from_in_range_enemies(in_range_enemies: Units) -> Unit:
-        """ We get the queen_control to prioritise in range flying units """
+        """We get the queen_control to prioritise in range flying units"""
         if in_range_enemies.flying:
             lowest_hp: Unit = min(
                 in_range_enemies.flying,
@@ -221,7 +221,7 @@ class BaseUnit(ABC):
         # unit tags that have already been transfused recently
         active_transfuse_target_tags = targets_being_transfused.keys()
         transfuse_targets: Units = self.bot.all_own_units.filter(
-            lambda unit: unit.health_percentage < 0.4
+            lambda unit: unit.health_percentage < 0.5
             and unit.tag not in active_transfuse_target_tags
             and unit.type_id in UNITS_TO_TRANSFUSE
             and unit.distance_to(from_pos) < 11

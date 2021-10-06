@@ -37,6 +37,8 @@ class Defence(BaseUnit):
             await self.do_queen_micro(unit, ground_threats_near_bases, grid)
         elif self.policy.defend_against_air and air_threats_near_bases:
             await self.do_queen_micro(unit, air_threats_near_bases, grid)
+        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
+            await self.do_queen_micro(unit, self.bot.enemy_units, grid)
         elif (
             self.map_data
             and grid is not None
