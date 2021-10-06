@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
+from sc2.ids.buff_id import BuffId
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2, Point3
 from sc2.unit import Unit
@@ -210,9 +211,22 @@ class Queens:
             self._assign_queen_role(queen)
             # if any queen has more than 50 energy, she may transfuse
             if queen.energy >= 50:
-                # method will return True if queen is transfusing
-                if await self._handle_transfuse(queen):
+                # _handle_transfuse method will return True if queen will transfusing
+                if queen.is_using_ability(
+                    AbilityId.TRANSFUSION_TRANSFUSION
+                ) or await self._handle_transfuse(queen):
                     continue
+
+            if queen.has_buff(BuffId.LOCKON) and self.map_data:
+                path: List[Point2] = self.map_data.pathfind(
+                    queen.position, self.bot.start_location, grid, sensitivity=6
+                )
+                if not path or len(path) == 0:
+                    move_to: Point2 = self.bot.start_location
+                else:
+                    move_to: Point2 = path[0]
+                queen.move(move_to)
+                continue
 
             if queen.tag in self.inject_targets:
                 await self.inject.handle_unit(
@@ -252,11 +266,11 @@ class Queens:
                 )
 
     async def _handle_transfuse(self, queen: Unit) -> bool:
-        """ Deal with a queen transfusing """
+        """Deal with a queen transfusing"""
         # clear out targets from the dict after a short interval so they may be transfused again
         transfuse_tags = list(self.targets_being_transfused.keys())
         for tag in transfuse_tags:
-            if self.targets_being_transfused[tag] > self.bot.time:
+            if self.targets_being_transfused[tag] < self.bot.time:
                 self.targets_being_transfused.pop(tag)
 
         transfuse_target: Unit = self.defence.get_transfuse_target(
@@ -264,7 +278,7 @@ class Queens:
         )
         if transfuse_target and transfuse_target is not queen:
             queen(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
-            self.targets_being_transfused[transfuse_target.tag] = self.bot.time + 0.5
+            self.targets_being_transfused[transfuse_target.tag] = self.bot.time + 0.3
             return True
         return False
 
