@@ -14,7 +14,7 @@ from queens_sc2.policy import Policy
 from queens_sc2.queen_control.base_unit import BaseUnit
 
 TARGETED_CREEP_SPREAD: str = "TARGETED"
-TIME_TO_CLEAR_PENDING_CREEP_POSITION: int = 20
+TIME_TO_CLEAR_PENDING_CREEP_POSITION: int = 10
 
 
 class Creep(BaseUnit):
@@ -78,25 +78,34 @@ class Creep(BaseUnit):
             and not should_spread_creep
         ):
             await self.do_queen_micro(unit, ground_threats_near_bases, grid)
-        elif self.bot.enemy_units and self.bot.enemy_units.filter(
-            # custom filter to replace in_attack_range_of so that it can be used with memory units
-            lambda enemy: enemy.position.distance_to(unit)
-            < max(unit.air_range, unit.ground_range)
+        # queen is on route to a tumor but encounters enemy units
+        elif (
+            unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR)
+            and self.bot.enemy_units
+            and self.bot.enemy_units.filter(
+                lambda enemy: enemy.distance_to(unit)
+                < max(unit.air_range, unit.ground_range)
+            )
         ):
             unit.move(self.policy.rally_point)
         elif (
             unit.energy >= 25
-            and len(unit.orders) == 0
+            and not unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR)
             and self.creep_coverage < self.policy.target_perc_coverage
         ):
             await self.spread_creep(unit, grid)
+        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
+            await self.do_queen_micro(unit, self.bot.enemy_units, grid)
         elif (
             self.map_data
             and grid is not None
+            and not unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR)
             and not self.is_position_safe(grid, unit.position)
         ):
             await self.move_towards_safe_spot(unit, grid)
-        elif unit.distance_to(self.policy.rally_point) > 7:
+        elif unit.distance_to(
+            self.policy.rally_point
+        ) > 7 and not unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR):
             if len(unit.orders) > 0:
                 if unit.orders[0].ability.button_name != "CreepTumor":
                     unit.move(self.policy.rally_point)
@@ -312,7 +321,7 @@ class Creep(BaseUnit):
                     return self._find_closest_to_target(point, creep_grid)
 
     def position_blocks_expansion(self, position: Point2) -> bool:
-        """ Will the creep tumor block expansion """
+        """Will the creep tumor block expansion"""
         blocks_expansion: bool = False
         for expansion in self.bot.expansion_locations_list:
             if position.distance_to(expansion) < 4:
@@ -321,7 +330,7 @@ class Creep(BaseUnit):
         return blocks_expansion
 
     def position_near_nydus_worm(self, position: Point2) -> bool:
-        """ Will the creep tumor block expansion """
+        """Will the creep tumor block expansion"""
         is_too_close: bool = False
         worms: Units = self.bot.structures(UnitID.NYDUSCANAL)
         for worm in worms:
@@ -341,7 +350,7 @@ class Creep(BaseUnit):
         self.no_creep_map = np.vstack((no_creep[1], no_creep[0])).transpose()
 
     def _existing_tumors_too_close(self, position: Point2) -> bool:
-        """ Using the policy option, check if other tumors are too close """
+        """Using the policy option, check if other tumors are too close"""
         min_distance: int = self.policy.distance_between_queen_tumors
         # passing 0 or False value into the policy will turn this check off and save computation
         if not min_distance:
