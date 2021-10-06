@@ -123,7 +123,7 @@ class Nydus(BaseUnit):
                     self.policy.nydus_move_function(unit, self.policy.nydus_target)
                 # manage this ourselves
                 else:
-                    network(AbilityId.LOAD_NYDUSNETWORK, unit)
+                    unit.smart(network)
             # else queen should micro on the other side
             # remember that all queens already have transfuse code baked in
             else:
@@ -153,21 +153,20 @@ class Nydus(BaseUnit):
                         move_to: Point2 = target.position.towards(unit, distance)
                         if self.bot.in_pathing_grid(move_to):
                             unit.move(move_to)
-                # check if there is anything around here to attack,
-                # if not then we attack the general attack target the user has passed in
-                # TODO: In the future, this is where we would want the queens to come home
-                #   At the moment a nydus queen is on a one way trip
-                elif (
-                    self.enemy_ground_units_near_nydus_target.amount == 0
-                    and self.enemy_flying_units_near_nydus_target.amount == 0
-                ):
-                    await self.do_queen_offensive_micro(unit, self.policy.attack_target)
+
                 # there are targets, but nothing in range so move towards the nydus target
                 else:
-                    unit.move(self.policy.nydus_target)
+                    if not self.bot.is_visible(self.policy.nydus_target):
+                        unit.move(self.policy.nydus_target)
+                    # TODO: In the future, this is where we would want the queens to come home
+                    #   At the moment a nydus queen is on a one way trip
+                    else:
+                        await self.do_queen_offensive_micro(
+                            unit, self.policy.attack_target
+                        )
 
     def _get_target_from_close_enemies(self, unit: Unit) -> Unit:
-        """ Try to find something in range of the queen """
+        """Try to find something in range of the queen"""
         if (
             self.enemy_flying_units_near_nydus_target
             and self.enemy_flying_units_near_nydus_target.in_attack_range_of(unit)
