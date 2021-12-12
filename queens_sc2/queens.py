@@ -1,8 +1,8 @@
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import DefaultDict, Dict, List, Optional, Set, Tuple, Union
+from collections import defaultdict
 import numpy as np
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
-from sc2.ids.buff_id import BuffId
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2, Point3
 from sc2.unit import Unit
@@ -15,6 +15,7 @@ from queens_sc2.consts import (
     NYDUS_POLICY,
     QueenRoles,
 )
+from queens_sc2.queen_control.base_unit import BaseUnit
 from queens_sc2.queen_control.creep import Creep
 from queens_sc2.queen_control.defence import Defence
 from queens_sc2.queen_control.inject import Inject
@@ -64,12 +65,15 @@ class Queens:
     ```
     """
 
+    TRANSFUSE_ENERGY_COST: int = 50
+
     def __init__(
         self,
         bot: BotAI,
         debug: bool = False,
         queen_policy: Dict = None,
         map_data: Optional["MapData"] = None,
+        control_canal: bool = True,
     ):
         self.bot: BotAI = bot
         self.debug: bool = debug
@@ -78,6 +82,7 @@ class Queens:
         self.defence_queen_tags: List[int] = []
         self.inject_targets: Dict[int, int] = {}
         self.nydus_queen_tags: List[int] = []
+        self.control_canal: bool = control_canal
 
         self.policies: Dict[str, Policy] = self._read_queen_policy(queen_policy)
         self.creep: Creep = Creep(bot, self.policies[CREEP_POLICY], map_data)
@@ -88,6 +93,7 @@ class Queens:
         # key: unit tag, value: when to expire so unit can be transfused again
         self.targets_being_transfused: Dict[int, float] = {}
         self.creep.update_creep_map()
+        self.unit_controllers: DefaultDict[int, BaseUnit] = defaultdict(BaseUnit)
         if map_data:
             self.map_data = map_data
 
@@ -105,7 +111,9 @@ class Queens:
         air_threats_near_bases: Optional[Units] = None,
         ground_threats_near_bases: Optional[Units] = None,
         queens: Optional[Units] = None,
+        avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
+        natural_position: Optional[Point2] = None,
     ) -> None:
         if self.defence.policy.pass_own_threats:
             air_threats: Units = air_threats_near_bases
@@ -129,9 +137,11 @@ class Queens:
         ):
             await self.creep.spread_existing_tumors()
 
-        await self._handle_queens(air_threats, ground_threats, queens, grid)
+        await self._handle_queens(
+            air_threats, ground_threats, queens, avoidance_grid, grid, natural_position
+        )
 
-        if self.nydus_canals.ready:
+        if self.control_canal and self.nydus_canals.ready:
             for nydus in self.nydus_canals.ready:
                 nydus(AbilityId.UNLOADALL_NYDUSWORM)
 
@@ -167,15 +177,18 @@ class Queens:
     def set_new_policy(self, queen_policy, reset_roles: bool = True) -> None:
         self.policies = self._read_queen_policy(queen_policy)
         if reset_roles:
-            self.assigned_queen_tags = set()
-            self.creep_queen_tags = []
-            self.defence_queen_tags = []
-            self.inject_targets.clear()
+            self.reset_roles()
 
         self.creep.update_policy(self.policies[CREEP_POLICY])
         self.defence.update_policy(self.policies[DEFENCE_POLICY])
         self.inject.update_policy(self.policies[INJECT_POLICY])
         self.nydus.update_policy(self.policies[NYDUS_POLICY])
+
+    def reset_roles(self) -> None:
+        self.assigned_queen_tags = set()
+        self.creep_queen_tags = []
+        self.defence_queen_tags = []
+        self.inject_targets.clear()
 
     def update_attack_target(self, attack_target: Point2) -> None:
         self.defence.set_attack_target(attack_target)
@@ -194,9 +207,11 @@ class Queens:
         air_threats: Units,
         ground_threats: Units,
         queens: Units,
+        avoidance_grid: Optional[np.ndarray],
         grid: Optional[np.ndarray],
+        natural_position: Optional[Point2],
     ):
-        all_close_threats = air_threats + ground_threats
+        all_close_threats: Units = air_threats + ground_threats
         creep_priority_enemy_units: Units = self._get_priority_enemy_units(
             all_close_threats, self.creep.policy
         )
@@ -209,64 +224,42 @@ class Queens:
         """ Main Queen loop """
         for queen in queens:
             self._assign_queen_role(queen)
-            # if any queen has more than 50 energy, she may transfuse
-            if queen.energy >= 50:
-                # _handle_transfuse method will return True if queen will transfusing
-                if queen.is_using_ability(
-                    AbilityId.TRANSFUSION_TRANSFUSION
-                ) or await self._handle_transfuse(queen):
+            # if any queen has more than 50 energy, she may transfuse at any time it's required
+            if queen.energy >= self.TRANSFUSE_ENERGY_COST:
+                # _handle_transfuse method will return True if queen will transfuse
+                if await self._handle_transfuse(queen):
                     continue
-
-            if queen.has_buff(BuffId.LOCKON) and self.map_data:
-                path: List[Point2] = self.map_data.pathfind(
-                    queen.position, self.bot.start_location, grid, sensitivity=6
+            th_tag: int = (
+                self.inject_targets[queen.tag]
+                if queen.tag in self.inject_targets
+                else 0
+            )
+            priority_threats: Units = (
+                inject_priority_enemy_units
+                if queen.tag in self.inject_targets
+                else (
+                    defence_priority_enemy_units
+                    if queen.tag in self.defence_queen_tags
+                    else creep_priority_enemy_units
                 )
-                if not path or len(path) == 0:
-                    move_to: Point2 = self.bot.start_location
-                else:
-                    move_to: Point2 = path[0]
-                queen.move(move_to)
-                continue
-
-            if queen.tag in self.inject_targets:
-                await self.inject.handle_unit(
-                    air_threats,
-                    ground_threats,
-                    inject_priority_enemy_units,
-                    queen,
-                    self.inject_targets[queen.tag],
-                    grid,
-                )
-            elif queen.tag in self.creep_queen_tags:
-                await self.creep.handle_unit(
-                    air_threats,
-                    ground_threats,
-                    creep_priority_enemy_units,
-                    queen,
-                    grid=grid,
-                )
-            elif queen.tag in self.defence_queen_tags:
-                await self.defence.handle_unit(
-                    air_threats,
-                    ground_threats,
-                    defence_priority_enemy_units,
-                    queen,
-                    grid=grid,
-                )
-
-            elif queen.tag in self.nydus_queen_tags:
-                await self.nydus.handle_unit(
-                    air_threats,
-                    ground_threats,
-                    defence_priority_enemy_units,
-                    queen,
-                    grid=grid,
-                    nydus_networks=self.nydus_networks,
-                    nydus_canals=self.nydus_canals,
-                )
+            )
+            await self.unit_controllers[queen.tag].handle_unit(
+                air_threats_near_bases=air_threats,
+                ground_threats_near_bases=ground_threats,
+                priority_enemy_units=priority_threats,
+                unit=queen,
+                th_tag=th_tag,
+                avoidance_grid=avoidance_grid,
+                grid=grid,
+                nydus_networks=self.nydus_networks,
+                nydus_canals=self.nydus_canals,
+                natural_position=natural_position,
+            )
 
     async def _handle_transfuse(self, queen: Unit) -> bool:
         """Deal with a queen transfusing"""
+        if queen.is_using_ability(AbilityId.TRANSFUSION_TRANSFUSION):
+            return True
         # clear out targets from the dict after a short interval so they may be transfused again
         transfuse_tags = list(self.targets_being_transfused.keys())
         for tag in transfuse_tags:
@@ -324,12 +317,15 @@ class Queens:
             # pick th closest to queen, so she doesn't have to walk too far
             th: Unit = ths_without_queen.closest_to(queen)
             if th.tag not in self.inject_targets.values():
+                self.unit_controllers[queen.tag] = self.inject
                 self.inject_targets[queen.tag] = th.tag
                 self.assigned_queen_tags.add(queen.tag)
         elif QueenRoles.Creep in priorities:
+            self.unit_controllers[queen.tag] = self.creep
             self.creep_queen_tags.append(queen.tag)
             self.assigned_queen_tags.add(queen.tag)
         elif QueenRoles.Defence in priorities:
+            self.unit_controllers[queen.tag] = self.defence
             self.defence_queen_tags.append(queen.tag)
             self.assigned_queen_tags.add(queen.tag)
         # if we get to here, then assign to inject, then creep then defence
@@ -342,16 +338,19 @@ class Queens:
                 if ths_without_queen:
                     # pick th closest to queen
                     th: Unit = ths_without_queen.closest_to(queen)
+                    self.unit_controllers[queen.tag] = self.inject
                     self.inject_targets[queen.tag] = th.tag
                     self.assigned_queen_tags.add(queen.tag)
             elif (
                 len(self.creep_queen_tags) < self.policies[CREEP_POLICY].max_queens
                 and self.policies[CREEP_POLICY].active
             ):
+                self.unit_controllers[queen.tag] = self.creep
                 self.creep_queen_tags.append(queen.tag)
                 self.assigned_queen_tags.add(queen.tag)
             # leftover queen_control get assigned to defence regardless, otherwise queen would do nothing
             else:
+                self.unit_controllers[queen.tag] = self.defence
                 self.defence_queen_tags.append(queen.tag)
                 self.assigned_queen_tags.add(queen.tag)
 
@@ -532,7 +531,7 @@ class Queens:
 
     @staticmethod
     def _get_priority_enemy_units(
-        enemy_threats: Optional[Units], policy: Policy
+        enemy_threats: Units, policy: Policy
     ) -> Optional[Units]:
         if enemy_threats and len(policy.priority_defence_list) != 0:
             priority_threats: Units = enemy_threats(policy.priority_defence_list)
