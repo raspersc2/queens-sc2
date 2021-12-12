@@ -1,8 +1,9 @@
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
-from sc2 import BotAI
+from sc2 import BotAI, Race
 from sc2.ids.ability_id import AbilityId
+from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
@@ -24,12 +25,16 @@ class Inject(BaseUnit):
         priority_enemy_units: Units,
         unit: Unit,
         th_tag: int = 0,
+        avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
         nydus_networks: Optional[Units] = None,
         nydus_canals: Optional[Units] = None,
+        natural_position: Optional[Point2] = None,
     ) -> None:
 
-        ths: Units = self.bot.townhalls.ready.tags_in([th_tag])
+        if await self.keep_queen_safe(avoidance_grid, grid, unit):
+            return
+        ths: Units = self.bot.townhalls.filter(lambda u: u.is_ready and u.tag == th_tag)
         if ths:
             th: Unit = ths.first
             if priority_enemy_units:
@@ -49,6 +54,7 @@ class Inject(BaseUnit):
                         unit,
                         th,
                         grid,
+                        natural_position,
                     )
 
     def update_policy(self, policy: Policy) -> None:
@@ -61,6 +67,7 @@ class Inject(BaseUnit):
         queen: Unit,
         townhall: Unit,
         grid: Optional[np.ndarray] = None,
+        natural_position: Optional[Point2] = None,
     ) -> None:
         """
         Between injects, we want the Queen to have the following behavior:
@@ -68,21 +75,22 @@ class Inject(BaseUnit):
         - Move the Queen back if she goes too far from the townhall
         - Stay out of the mineral line, incase bot has custom mineral gathering (don't block workers)
         """
-        # don't do anything else, just move the queen back
-        if queen.distance_to(townhall) > 8:
-            queen.move(townhall)
-            return
 
         close_threats: Units = Units([], self.bot)
         # we can only have close threats if enemy are near our bases in the first place
         # so save calculation otherwise
         if air_threats_near_bases or ground_threats_near_bases:
             close_threats = self.bot.enemy_units.filter(
-                lambda enemy: enemy.position.distance_to(townhall) < 12
+                lambda enemy: enemy.position.distance_to(townhall) < 13
             )
 
-        if close_threats:
+        # prevent queen wondering off is priority
+        if queen.distance_to(townhall) > 11:
+            queen.move(townhall)
+
+        elif close_threats:
             await self.do_queen_micro(queen, close_threats, grid)
+
         # every now and then, check queen is not in the mineral field blocking workers
         elif self.bot.state.game_loop % 32 == 0:
             close_mfs: Units = self.bot.mineral_field.filter(

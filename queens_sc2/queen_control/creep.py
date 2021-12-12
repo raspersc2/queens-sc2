@@ -56,14 +56,18 @@ class Creep(BaseUnit):
         priority_enemy_units: Units,
         unit: Unit,
         th_tag: int = 0,
+        avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
         nydus_networks: Optional[Units] = None,
         nydus_canals: Optional[Units] = None,
+        natural_position: Optional[Point2] = None,
     ) -> None:
 
         should_spread_creep: bool = self._check_queen_can_spread_creep(unit)
         self.creep_targets = self.policy.creep_targets
 
+        if await self.keep_queen_safe(avoidance_grid, grid, unit):
+            return
         if priority_enemy_units:
             await self.do_queen_micro(unit, priority_enemy_units, grid)
         elif (
@@ -83,8 +87,9 @@ class Creep(BaseUnit):
             unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR)
             and self.bot.enemy_units
             and self.bot.enemy_units.filter(
-                lambda enemy: enemy.distance_to(unit)
-                < max(unit.air_range, unit.ground_range)
+                lambda enemy: enemy.can_attack_ground
+                and enemy.distance_to(unit) < max(unit.air_range, unit.ground_range)
+                and enemy.type_id not in {UnitID.OVERLORD}
             )
         ):
             unit.move(self.policy.rally_point)
@@ -94,8 +99,6 @@ class Creep(BaseUnit):
             and self.creep_coverage < self.policy.target_perc_coverage
         ):
             await self.spread_creep(unit, grid)
-        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
-            await self.do_queen_micro(unit, self.bot.enemy_units, grid)
         elif (
             self.map_data
             and grid is not None

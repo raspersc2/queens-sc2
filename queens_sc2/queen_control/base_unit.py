@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 from sc2 import BotAI
 from sc2.constants import UNIT_COLOSSUS
+from sc2.ids.buff_id import BuffId
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2, Pointlike
 from sc2.unit import Unit
@@ -75,9 +76,11 @@ class BaseUnit(ABC):
         priority_enemy_units: Units,
         unit: Unit,
         th_tag: int = 0,
+        avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
         nydus_networks: Optional[Units] = None,
         nydus_canals: Optional[Units] = None,
+        natural_position: Optional[Point2] = None,
     ) -> None:
         pass
 
@@ -129,6 +132,37 @@ class BaseUnit(ABC):
 
         return step_time + turn_time + move_time >= unit.weapon_cooldown / 22.4
 
+    async def keep_queen_safe(
+        self,
+        avoidance_grid: Optional[np.ndarray],
+        grid: Optional[np.ndarray],
+        queen: Unit,
+    ) -> bool:
+        if queen.has_buff(BuffId.LOCKON):
+            if self.map_data and grid:
+                path: List[Point2] = self.map_data.pathfind(
+                    queen.position, self.bot.start_location, grid, sensitivity=6
+                )
+                if not path or len(path) == 0:
+                    move_to: Point2 = self.bot.start_location
+                else:
+                    move_to: Point2 = path[0]
+                queen.move(move_to)
+                return True
+            else:
+                # use MapAnalyzer if you want better lock on avoidance :)
+                queen.move(self.bot.start_location)
+                return True
+        if (
+            self.map_data
+            and avoidance_grid
+            and grid
+            and not self.is_position_safe(avoidance_grid, queen.position)
+        ):
+            await self.move_towards_safe_spot(queen, grid)
+            return True
+        return False
+
     async def do_queen_micro(
         self, queen: Unit, enemy: Units, grid: Optional[np.ndarray] = None
     ) -> None:
@@ -153,10 +187,10 @@ class BaseUnit(ABC):
                 queen.attack(in_range_enemies.center)
         elif enemy:
             target = enemy.closest_to(queen)
-            queen.attack(target)
+            queen.attack(target.position)
         elif self.bot.all_enemy_units:
             target = self.bot.all_enemy_units.closest_to(queen)
-            queen.attack(target)
+            queen.attack(target.position)
 
     async def do_queen_offensive_micro(
         self, queen: Unit, offensive_pos: Point2

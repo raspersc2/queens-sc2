@@ -58,10 +58,14 @@ class Nydus(BaseUnit):
         priority_enemy_units: Units,
         unit: Unit,
         th_tag: int = 0,
+        avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
         nydus_networks: Optional[Units] = None,
         nydus_canals: Optional[Units] = None,
+        natural_position: Optional[Point2] = None,
     ) -> None:
+        if await self.keep_queen_safe(avoidance_grid, grid, unit):
+            return
         canal: Optional[Unit] = None
         network: Optional[Unit] = None
         # canal is what we place else where on the map
@@ -120,7 +124,9 @@ class Nydus(BaseUnit):
             if unit_distance_to_target > 45 and unit.distance_to(network) < 70:
                 # user has some custom code for moving units through nydus
                 if self.policy.nydus_move_function:
-                    self.policy.nydus_move_function(unit, self.policy.nydus_target)
+                    self.policy.nydus_move_function(
+                        unit=unit, target=self.policy.nydus_target
+                    )
                 # manage this ourselves
                 else:
                     unit.smart(network)
@@ -153,13 +159,10 @@ class Nydus(BaseUnit):
                         move_to: Point2 = target.position.towards(unit, distance)
                         if self.bot.in_pathing_grid(move_to):
                             unit.move(move_to)
-
                 # there are targets, but nothing in range so move towards the nydus target
                 else:
                     if not self.bot.is_visible(self.policy.nydus_target):
                         unit.move(self.policy.nydus_target)
-                    # TODO: In the future, this is where we would want the queens to come home
-                    #   At the moment a nydus queen is on a one way trip
                     else:
                         await self.do_queen_offensive_micro(
                             unit, self.policy.attack_target

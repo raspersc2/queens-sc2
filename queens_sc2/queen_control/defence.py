@@ -24,11 +24,14 @@ class Defence(BaseUnit):
         priority_enemy_units: Units,
         unit: Unit,
         th_tag: int = 0,
+        avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
         nydus_networks: Optional[Units] = None,
         nydus_canals: Optional[Units] = None,
+        natural_position: Optional[Point2] = None,
     ) -> None:
-
+        if await self.keep_queen_safe(avoidance_grid, grid, unit):
+            return
         if priority_enemy_units:
             await self.do_queen_micro(unit, priority_enemy_units, grid)
         elif self.policy.attack_condition():
