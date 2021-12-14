@@ -139,6 +139,23 @@ class Queens:
         natural_position: Optional[Point2] = None,
         unselectable_dropperlords: Optional[Union[Dict, Set]] = None,
     ) -> None:
+        """
+        This is the main method your bot will call
+        Args:
+            @param iteration: Current step / frame number
+            @param air_threats_near_bases: Air threats, queens-sc2 will calculate this if `None`
+            @param ground_threats_near_bases: Ground threats, queens-sc2 will calculate this if `None`
+            @param queens: Collection of queens `queens-sc2` should manage, will take all queens otherwise
+            @param air_grid: Air grid from SC2MapAnalyzer, used for queen droppperlord pathfinding
+                                (map_data should be plugged in via the constructor)
+            @param avoidance_grid: Ground avoidance grid from SC2MapAnalyzer, used to keep queens safe
+                                (map_data should be plugged in via the constructor)
+            @param grid: Ground grid from SC2MapAnalyzer, used for Queen micro and creep spread
+                                (map_data should be plugged in via the constructor)
+            @param natural_position: Own natural, not currently used
+            @param unselectable_dropperlords: Tags of dropperlords queens-sc2 shouldn't steal
+                                            If passing a dict, the keys should be the dropperlord tags
+        """
         self.kd_trees.update()
         if self.defence.policy.pass_own_threats:
             air_threats: Units = air_threats_near_bases

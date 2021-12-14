@@ -15,7 +15,7 @@ MyBot
 └───your bot files and directories
 ```
 
-Alternatively feel free to download [QueenBot](https://aiarena.net/bots/201/) from the AI Arena ladder and use that as a starting point for your own bot.
+Alternatively feel free to download [QueenBot](https://aiarena.net/bots/201/) from the AI Arena ladder.
 
 ## Example bot file
 Out of the box, the library will run without a policy but remember you have to build the queens yourself:
@@ -68,6 +68,19 @@ queen_policy: Dict = {
       "prioritize_creep": Callable, # prioritize over defending bases if energy is available?
       "pass_own_threats": bool, # if set to True, library wont calculate enemy near bases, you should pass air and ground threats to manage_queens() method
       "priority_defence_list": Set[UnitID] # queen_control will prioritise defending these unit types over all other jobs
+  },
+  "creep_dropperlord_queens": {
+      "active": bool,
+      "max": int, # only supports 1 queen / 1 dropperlord for now
+      "priority": Union[bool, int],
+      "defend_against_air": bool,
+      "defend_against_ground": bool,
+      "attack_condition": Callable, # only if you intend for defend queen_control to turn offensive
+      "attack_target": Point2, # used by offensive defence queen_control, otherwise not required
+      "rally_point": Point2,
+      "pass_own_threats": bool,
+      "priority_defence_list": Set[UnitID],
+      "target_expansions": List[Point2]
   },
   "defence_queens": {
       "active": bool,
@@ -157,7 +170,8 @@ self.queens.update_nydus_target(self.enemy_start_locations[0])
 ```
 
 ### SC2 Map Analyzer support
-`queens-sc2` comes with completely optional support for [SC2 Map Analyzer](https://github.com/eladyaniv01/SC2MapAnalysis), currently this allows for improved creep spread and better Queen control.
+`queens-sc2` comes with completely optional support for [SC2 Map Analyzer](https://github.com/eladyaniv01/SC2MapAnalysis), 
+currently this allows for improved creep spread and better Queen control. A priority avoidance grid may be passed, with threats prepopulated on the grid so that Queens avoid areas.
 
 Example setup with MA (please follow instructions on the MA repo if needed):
 ```python
@@ -173,10 +187,13 @@ Example setup with MA (please follow instructions on the MA repo if needed):
             )
             
         async def on_step(self, iteration: int) -> None:
+            avoidance_grid: np.ndarray = self.map_data.get_pyastar_grid()
+            # add cost to avoidance_grid, for example positions of nukes / biles / storms etc
             ground_grid: np.ndarray = self.map_data.get_pyastar_grid()
             # you may want to add cost etc depending on your bot, 
+            
             # depending on usecase it may not need a fresh grid every step
-            await self.queens.manage_queens(iteration, grid=ground_grid)
+            await self.queens.manage_queens(iteration, avoidance_grid=avoidance_grid, grid=ground_grid)
 ```
 
 ### I only want creep spread
