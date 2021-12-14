@@ -68,6 +68,12 @@ class CreepQueen(Policy):
         self.prioritize_creep = prioritize_creep
 
 
+class CreepDropperlordQueen(Policy):
+    def __init__(self, target_expansions: List[Point2], **kwargs):
+        self.target_expansions = target_expansions
+        super().__init__(**kwargs)
+
+
 class InjectQueen(Policy):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

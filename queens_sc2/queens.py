@@ -10,17 +10,27 @@ from sc2.units import Units
 from queens_sc2.cache import property_cache_once_per_frame
 from queens_sc2.consts import (
     CREEP_POLICY,
+    CREEP_DROPPERLORD_POLICY,
     DEFENCE_POLICY,
     INJECT_POLICY,
     NYDUS_POLICY,
     QueenRoles,
 )
+from queens_sc2.kd_trees import KDTrees
 from queens_sc2.queen_control.base_unit import BaseUnit
 from queens_sc2.queen_control.creep import Creep
+from queens_sc2.queen_control.creep_dropperlord import CreepDropperlord
 from queens_sc2.queen_control.defence import Defence
 from queens_sc2.queen_control.inject import Inject
 from queens_sc2.queen_control.nydus import Nydus
-from queens_sc2.policy import DefenceQueen, CreepQueen, InjectQueen, NydusQueen, Policy
+from queens_sc2.policy import (
+    DefenceQueen,
+    CreepQueen,
+    CreepDropperlordQueen,
+    InjectQueen,
+    NydusQueen,
+    Policy,
+)
 
 
 class Queens:
@@ -75,27 +85,39 @@ class Queens:
         map_data: Optional["MapData"] = None,
         control_canal: bool = True,
     ):
+        self.kd_trees: KDTrees = KDTrees(bot)
         self.bot: BotAI = bot
         self.debug: bool = debug
         self.assigned_queen_tags: Set[int] = set()
         self.creep_queen_tags: List[int] = []
+        self.creep_dropperlod_tags: List[int] = []
         self.defence_queen_tags: List[int] = []
         self.inject_targets: Dict[int, int] = {}
         self.nydus_queen_tags: List[int] = []
         self.control_canal: bool = control_canal
 
         self.policies: Dict[str, Policy] = self._read_queen_policy(queen_policy)
-        self.creep: Creep = Creep(bot, self.policies[CREEP_POLICY], map_data)
-        self.defence: Defence = Defence(bot, self.policies[DEFENCE_POLICY], map_data)
-        self.inject: Inject = Inject(bot, self.policies[INJECT_POLICY], map_data)
-        self.nydus: Nydus = Nydus(bot, self.policies[NYDUS_POLICY], map_data)
+        self.creep: Creep = Creep(
+            bot, self.kd_trees, self.policies[CREEP_POLICY], map_data
+        )
+        self.creep_dropperlord: CreepDropperlord = CreepDropperlord(
+            bot, self.kd_trees, self.policies[CREEP_DROPPERLORD_POLICY], map_data
+        )
+        self.defence: Defence = Defence(
+            bot, self.kd_trees, self.policies[DEFENCE_POLICY], map_data
+        )
+        self.inject: Inject = Inject(
+            bot, self.kd_trees, self.policies[INJECT_POLICY], map_data
+        )
+        self.nydus: Nydus = Nydus(
+            bot, self.kd_trees, self.policies[NYDUS_POLICY], map_data
+        )
         self.transfuse_dict: Dict[int] = {}
         # key: unit tag, value: when to expire so unit can be transfused again
         self.targets_being_transfused: Dict[int, float] = {}
         self.creep.update_creep_map()
         self.unit_controllers: DefaultDict[int, BaseUnit] = defaultdict(BaseUnit)
-        if map_data:
-            self.map_data = map_data
+        self.map_data = map_data
 
     @property_cache_once_per_frame
     def nydus_canals(self) -> Units:
@@ -111,16 +133,27 @@ class Queens:
         air_threats_near_bases: Optional[Units] = None,
         ground_threats_near_bases: Optional[Units] = None,
         queens: Optional[Units] = None,
+        air_grid: Optional[np.ndarray] = None,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
         natural_position: Optional[Point2] = None,
+        unselectable_dropperlords: Optional[Union[Dict, Set]] = None,
     ) -> None:
+        self.kd_trees.update()
         if self.defence.policy.pass_own_threats:
             air_threats: Units = air_threats_near_bases
             ground_threats: Units = ground_threats_near_bases
         else:
             air_threats: Units = self.defence.enemy_air_threats
             ground_threats: Units = self.defence.enemy_ground_threats
+
+        if self.map_data:
+            if air_grid is None:
+                air_grid = self.map_data.get_clean_air_grid()
+            if grid is None:
+                grid = self.map_data.get_pyastar_grid()
+            if avoidance_grid is None:
+                avoidance_grid = self.map_data.get_pyastar_grid()
 
         if queens is None:
             queens: Units = self.bot.units(UnitID.QUEEN)
@@ -138,7 +171,14 @@ class Queens:
             await self.creep.spread_existing_tumors()
 
         await self._handle_queens(
-            air_threats, ground_threats, queens, avoidance_grid, grid, natural_position
+            air_threats,
+            ground_threats,
+            queens,
+            air_grid,
+            avoidance_grid,
+            grid,
+            natural_position,
+            unselectable_dropperlords,
         )
 
         if self.control_canal and self.nydus_canals.ready:
@@ -174,12 +214,21 @@ class Queens:
         if unit_tag in self.assigned_queen_tags:
             self.assigned_queen_tags.remove(unit_tag)
 
+        # dropperlord tags
+        if unit_tag in self.creep_dropperlod_tags:
+            self.creep_dropperlod_tags.remove(unit_tag)
+
+        if unit_tag == self.creep_dropperlord.dropperlord_tag:
+            self.creep_dropperlord.dropperlord_tag = 0
+            self.creep_dropperlod_tags = []
+
     def set_new_policy(self, queen_policy, reset_roles: bool = True) -> None:
         self.policies = self._read_queen_policy(queen_policy)
         if reset_roles:
             self.reset_roles()
 
         self.creep.update_policy(self.policies[CREEP_POLICY])
+        self.creep_dropperlord.update_policy(self.policies[CREEP_DROPPERLORD_POLICY])
         self.defence.update_policy(self.policies[DEFENCE_POLICY])
         self.inject.update_policy(self.policies[INJECT_POLICY])
         self.nydus.update_policy(self.policies[NYDUS_POLICY])
@@ -207,9 +256,11 @@ class Queens:
         air_threats: Units,
         ground_threats: Units,
         queens: Units,
+        air_grid: Optional[np.ndarray],
         avoidance_grid: Optional[np.ndarray],
         grid: Optional[np.ndarray],
         natural_position: Optional[Point2],
+        unselectable_dropperlords: Optional[Union[Dict, Set]] = None,
     ):
         all_close_threats: Units = air_threats + ground_threats
         creep_priority_enemy_units: Units = self._get_priority_enemy_units(
@@ -221,8 +272,11 @@ class Queens:
         inject_priority_enemy_units: Units = self._get_priority_enemy_units(
             all_close_threats, self.inject.policy
         )
+
         """ Main Queen loop """
         for queen in queens:
+            if queen.tag in self.creep_dropperlod_tags:
+                continue
             self._assign_queen_role(queen)
             # if any queen has more than 50 energy, she may transfuse at any time it's required
             if queen.energy >= self.TRANSFUSE_ENERGY_COST:
@@ -243,17 +297,29 @@ class Queens:
                     else creep_priority_enemy_units
                 )
             )
-            await self.unit_controllers[queen.tag].handle_unit(
-                air_threats_near_bases=air_threats,
-                ground_threats_near_bases=ground_threats,
-                priority_enemy_units=priority_threats,
-                unit=queen,
-                th_tag=th_tag,
+            if queen.tag in self.unit_controllers:
+                await self.unit_controllers[queen.tag].handle_unit(
+                    air_threats_near_bases=air_threats,
+                    ground_threats_near_bases=ground_threats,
+                    priority_enemy_units=priority_threats,
+                    unit=queen,
+                    th_tag=th_tag,
+                    avoidance_grid=avoidance_grid,
+                    grid=grid,
+                    nydus_networks=self.nydus_networks,
+                    nydus_canals=self.nydus_canals,
+                    natural_position=natural_position,
+                )
+
+        if len(self.creep_dropperlod_tags) > 0:
+            await self.creep_dropperlord.handle_queen_dropperlord(
+                creep_map=self.creep.creep_map,
+                unit_tag=self.creep_dropperlod_tags[0],
+                queens=queens,
+                air_grid=air_grid,
                 avoidance_grid=avoidance_grid,
                 grid=grid,
-                nydus_networks=self.nydus_networks,
-                nydus_canals=self.nydus_canals,
-                natural_position=natural_position,
+                unselectable_dropperlords=unselectable_dropperlords,
             )
 
     async def _handle_transfuse(self, queen: Unit) -> bool:
@@ -284,8 +350,9 @@ class Queens:
         :return:
         :rtype:
         """
-        # If this queen has a role, we might want to steal it for the nydus
+        # If this queen has a role, we might want to steal it for the nydus, or for a creep dropperlord
         self._check_nydus_role(queen)
+        self._check_creep_dropperlord_role(queen)
 
         if self._queen_has_role(queen):
             return
@@ -354,6 +421,28 @@ class Queens:
                 self.defence_queen_tags.append(queen.tag)
                 self.assigned_queen_tags.add(queen.tag)
 
+    def _check_creep_dropperlord_role(self, queen: Unit) -> None:
+        """Steal a queen from the creep queens"""
+        if (
+            queen.tag not in self.creep_queen_tags
+            or len(self.creep_dropperlod_tags)
+            >= self.creep_dropperlord.policy.max_queens
+        ):
+            return
+
+        lair_tech_ready: bool = False
+        for th in self.bot.townhalls:
+            if (th.type_id == UnitID.LAIR and th.is_ready) or th.type_id == UnitID.HIVE:
+                lair_tech_ready = True
+                break
+
+        if lair_tech_ready:
+            self.remove_unit(queen.tag)
+            self.assigned_queen_tags.add(queen.tag)
+            self.creep_dropperlod_tags.append(queen.tag)
+            if queen.tag in self.unit_controllers:
+                del self.unit_controllers[queen.tag]
+
     def _check_nydus_role(self, queen: Unit) -> None:
         """
         If there are nydus's we may want to steal this queen for the nydus
@@ -384,6 +473,7 @@ class Queens:
                 self.remove_unit(queen.tag)
                 self.assigned_queen_tags.add(queen.tag)
                 self.nydus_queen_tags.append(queen.tag)
+                self.unit_controllers[queen.tag] = self.nydus
 
         # TODO: Work out how to handle aborting a Nydus:
         #   - Policy option for when Queen goes back into canal if too much danger?
@@ -417,6 +507,7 @@ class Queens:
         # handle user not passing in a policy
         _queen_policy: Dict = queen_policy if queen_policy else {}
         cq_policy = _queen_policy.get("creep_queens", {})
+        cdq_policy = _queen_policy.get("creep_dropperlord_queens", {})
         dq_policy = _queen_policy.get("defence_queens", {})
         iq_policy = _queen_policy.get("inject_queens", {})
         nq_policy = _queen_policy.get("nydus_queens", {})
@@ -462,6 +553,20 @@ class Queens:
             ),
             prioritize_creep=cq_policy.get("prioritize_creep", lambda: False),
             priority_defence_list=cq_policy.get("priority_defence_list", set()),
+        )
+
+        creep_dropperlord_queen_policy = CreepDropperlordQueen(
+            active=cdq_policy.get("active", True),
+            max_queens=cdq_policy.get("max", 1),
+            priority=cdq_policy.get("priority", False),
+            defend_against_air=cdq_policy.get("defend_against_air", False),
+            defend_against_ground=cdq_policy.get("defend_against_ground", False),
+            pass_own_threats=cdq_policy.get(
+                "pass_own_threats",
+                False,
+            ),
+            priority_defence_list=cdq_policy.get("priority_defence_list", set()),
+            target_expansions=cdq_policy.get("target_expansions", []),
         )
 
         defence_queen_policy = DefenceQueen(
@@ -522,6 +627,7 @@ class Queens:
 
         policies = {
             CREEP_POLICY: creep_queen_policy,
+            CREEP_DROPPERLORD_POLICY: creep_dropperlord_queen_policy,
             DEFENCE_POLICY: defence_queen_policy,
             INJECT_POLICY: inject_queen_policy,
             NYDUS_POLICY: nydus_queen_policy,
@@ -617,6 +723,15 @@ class Queens:
         if tumors:
             for tumor in tumors:
                 self._draw_on_world(tumor.position, f"TUMOR")
+
+        self._draw_on_world(
+            self.creep_dropperlord.current_creep_target, "DROPPERLORD CREEP TARGET"
+        )
+        for potential_target in self.creep_dropperlord.creep_targets:
+            self._draw_on_world(
+                potential_target,
+                f"{potential_target} POTENTIAL DROPPERLORD CREEP TARGET",
+            )
 
     def _draw_on_world(self, pos: Point2, text: str) -> None:
         z_height: float = self.bot.get_terrain_z_height(pos)

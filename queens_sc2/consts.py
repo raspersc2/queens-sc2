@@ -3,6 +3,7 @@ from enum import Enum, auto
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
 
 CREEP_POLICY: str = "creep_policy"
+CREEP_DROPPERLORD_POLICY: str = "creep_dropperlord_policy"
 DEFENCE_POLICY: str = "defence_policy"
 INJECT_POLICY: str = "inject_policy"
 NYDUS_POLICY: str = "nydus_policy"
