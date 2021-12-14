@@ -6,15 +6,20 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from queens_sc2.kd_trees import KDTrees
 from queens_sc2.queen_control.base_unit import BaseUnit
 from queens_sc2.policy import Policy
 
 
 class Defence(BaseUnit):
     def __init__(
-        self, bot: BotAI, defence_policy: Policy, map_data: Optional["MapData"]
+        self,
+        bot: BotAI,
+        kd_trees: KDTrees,
+        defence_policy: Policy,
+        map_data: Optional["MapData"],
     ):
-        super().__init__(bot, map_data)
+        super().__init__(bot, kd_trees, map_data)
         self.policy = defence_policy
 
     async def handle_unit(

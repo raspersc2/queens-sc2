@@ -10,6 +10,7 @@ from sc2.position import Point2, Pointlike
 from sc2.unit import Unit
 from sc2.units import Units
 
+from queens_sc2.kd_trees import KDTrees
 from queens_sc2.policy import Policy
 from queens_sc2.queen_control.base_unit import BaseUnit
 
@@ -21,8 +22,14 @@ class Creep(BaseUnit):
     creep_map: np.ndarray
     no_creep_map: np.ndarray
 
-    def __init__(self, bot: BotAI, creep_policy: Policy, map_data: Optional["MapData"]):
-        super().__init__(bot, map_data)
+    def __init__(
+        self,
+        bot: BotAI,
+        kd_trees: KDTrees,
+        creep_policy: Policy,
+        map_data: Optional["MapData"],
+    ):
+        super().__init__(bot, kd_trees, map_data)
         self.policy = creep_policy
         self.creep_targets: List[Point2] = []
         self.creep_target_index: int = 0
@@ -143,8 +150,6 @@ class Creep(BaseUnit):
         should_lay_tumor: bool = True
         # if using map_data, creep will follow ground path to the targets
         if self.map_data:
-            if grid is None:
-                grid = self.map_data.get_pyastar_grid()
             pos: Point2 = self._find_closest_to_target_using_path(
                 self.creep_targets[self.creep_target_index], self.creep_map, grid
             )
@@ -267,14 +272,10 @@ class Creep(BaseUnit):
     def _find_random_creep_placement(
         self, from_pos: Point2, distance: int
     ) -> Optional[Point2]:
-        from random import randint
-        from math import cos, sin
-
-        angle: int = randint(0, 360)
-        pos: Point2 = from_pos + (distance * Point2((cos(angle), sin(angle))))
+        random_position: Point2 = self.get_random_position_from(from_pos, distance)
         # go backwards towards tumor till position is found
         for i in range(5):
-            creep_pos: Point2 = pos.towards(from_pos, distance=i)
+            creep_pos: Point2 = random_position.towards(from_pos, distance=i)
             # check the position is within the map
             if (
                 creep_pos.x < 0
@@ -322,15 +323,6 @@ class Creep(BaseUnit):
                 if not self.bot.has_creep(point):
                     # then get closest creep tile, to this no creep tile
                     return self._find_closest_to_target(point, creep_grid)
-
-    def position_blocks_expansion(self, position: Point2) -> bool:
-        """Will the creep tumor block expansion"""
-        blocks_expansion: bool = False
-        for expansion in self.bot.expansion_locations_list:
-            if position.distance_to(expansion) < 4:
-                blocks_expansion = True
-                break
-        return blocks_expansion
 
     def position_near_nydus_worm(self, position: Point2) -> bool:
         """Will the creep tumor block expansion"""

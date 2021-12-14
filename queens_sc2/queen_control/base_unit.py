@@ -1,6 +1,8 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Set, Union
+from random import randint
+from math import cos, sin
 
 import numpy as np
 from sc2 import BotAI
@@ -12,6 +14,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 from scipy import spatial
 
+from queens_sc2.kd_trees import KDTrees
 from queens_sc2.cache import property_cache_once_per_frame
 from queens_sc2.consts import (
     CHANGELING_TYPES,
@@ -21,12 +24,29 @@ from queens_sc2.consts import (
 )
 from queens_sc2.policy import Policy
 
+EXCLUDE_FROM_ATTACK_TARGETS: Set[UnitID] = {UnitID.MULE, UnitID.EGG, UnitID.LARVA}
+EXCLUDE_FROM_POS_NEAR_ENEMY: Set[UnitID] = {
+    UnitID.DRONE,
+    UnitID.SCV,
+    UnitID.PROBE,
+    UnitID.CHANGELING,
+    UnitID.CHANGELINGMARINE,
+    UnitID.CHANGELINGZERGLING,
+    UnitID.CHANGELINGZERGLINGWINGS,
+    UnitID.CHANGELINGZEALOT,
+    UnitID.CHANGELINGMARINESHIELD,
+    UnitID.OVERLORD,
+    UnitID.OVERSEER,
+    UnitID.OBSERVER,
+}
+
 
 class BaseUnit(ABC):
     policy: Policy
 
-    def __init__(self, bot: BotAI, map_data: "MapData"):
+    def __init__(self, bot: BotAI, kd_trees: KDTrees, map_data: "MapData"):
         self.bot: BotAI = bot
+        self.kd_trees: KDTrees = kd_trees
         self.map_data: Optional["MapData"] = map_data
 
     @property_cache_once_per_frame
@@ -139,7 +159,7 @@ class BaseUnit(ABC):
         queen: Unit,
     ) -> bool:
         if queen.has_buff(BuffId.LOCKON):
-            if self.map_data and grid:
+            if self.map_data:
                 path: List[Point2] = self.map_data.pathfind(
                     queen.position, self.bot.start_location, grid, sensitivity=6
                 )
@@ -153,12 +173,7 @@ class BaseUnit(ABC):
                 # use MapAnalyzer if you want better lock on avoidance :)
                 queen.move(self.bot.start_location)
                 return True
-        if (
-            self.map_data
-            and avoidance_grid
-            and grid
-            and not self.is_position_safe(avoidance_grid, queen.position)
-        ):
+        if self.map_data and not self.is_position_safe(avoidance_grid, queen.position):
             await self.move_towards_safe_spot(queen, grid)
             return True
         return False
@@ -197,15 +212,15 @@ class BaseUnit(ABC):
     ) -> None:
         if not queen or not offensive_pos:
             return
-        enemy: Units = self.bot.enemy_units.exclude_type(
-            {UnitID.MULE, UnitID.EGG, UnitID.LARVA}
+        enemy: Units = self.kd_trees.enemy_units_in_range(queen.position, 15).filter(
+            lambda u: u.type_id not in EXCLUDE_FROM_ATTACK_TARGETS
         )
-        enemy_structures: Units = self.bot.enemy_structures
         queens: Units = self.bot.units(UnitID.QUEEN)
-        own_close_queens: Units = queens.filter(lambda u: u.distance_to(queen) < 5)
+        own_close_queens: Units = self.kd_trees.own_units_in_range(
+            queen.position, 5
+        ).filter(lambda u: u.type_id == UnitID.QUEEN)
         if enemy:
             in_range_enemies: Units = enemy.in_attack_range_of(queen)
-            in_range_structures: Units = enemy_structures.in_attack_range_of(queen)
             if in_range_enemies:
                 target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
                 if self.attack_ready(queen, target):
@@ -215,17 +230,6 @@ class BaseUnit(ABC):
                     if own_close_queens.amount <= 3:
                         queen.move(queens.center)
                     # otherwise move forward between attacks, since Queen is slow and can get stuck behind each other
-                    else:
-                        queen.move(offensive_pos)
-            elif in_range_structures:
-                target: Unit = self._get_target_from_in_range_enemies(
-                    in_range_structures
-                )
-                if self.attack_ready(queen, target):
-                    queen.attack(target)
-                else:
-                    if own_close_queens.amount <= 3:
-                        queen.move(queens.center)
                     else:
                         queen.move(offensive_pos)
             else:
@@ -252,13 +256,12 @@ class BaseUnit(ABC):
     def get_transfuse_target(
         self, from_pos: Point2, targets_being_transfused: Dict[int, float]
     ) -> Optional[Unit]:
-        # unit tags that have already been transfused recently
-        active_transfuse_target_tags = targets_being_transfused.keys()
-        transfuse_targets: Units = self.bot.all_own_units.filter(
-            lambda unit: unit.health_percentage < 0.5
-            and unit.tag not in active_transfuse_target_tags
+        transfuse_targets: Units = self.kd_trees.own_units_in_range(
+            from_pos, 11
+        ).filter(
+            lambda unit: unit.tag not in targets_being_transfused
             and unit.type_id in UNITS_TO_TRANSFUSE
-            and unit.distance_to(from_pos) < 11
+            and unit.health_percentage < 0.5
         )
 
         return transfuse_targets.closest_to(from_pos) if transfuse_targets else None
@@ -269,26 +272,15 @@ class BaseUnit(ABC):
         return QUEEN_TURN_RATE * 1.4 * math.pi / 180
 
     def position_near_enemy(self, pos: Point2) -> bool:
-        close_enemy: Units = self.bot.enemy_units.filter(
-            lambda unit: unit.position.distance_to(pos) < 12
-            and unit.can_attack_ground
-            and unit.type_id
-            not in {
-                UnitID.DRONE,
-                UnitID.SCV,
-                UnitID.PROBE,
-                UnitID.CHANGELING,
-                UnitID.CHANGELINGMARINE,
-                UnitID.CHANGELINGZERGLING,
-                UnitID.CHANGELINGZERGLINGWINGS,
-                UnitID.CHANGELINGZEALOT,
-                UnitID.CHANGELINGMARINESHIELD,
-                UnitID.OVERLORD,
-                UnitID.OVERSEER,
-                UnitID.OBSERVER,
-            }
+        return (
+            self.kd_trees.enemy_units_in_range(pos, 12)
+            .filter(
+                lambda unit: unit.can_attack_ground
+                and unit.type_id not in EXCLUDE_FROM_POS_NEAR_ENEMY
+            )
+            .amount
+            > 0
         )
-        return True if close_enemy else False
 
     def position_near_enemy_townhall(self, pos: Point2) -> bool:
         close_townhalls: Units = self.bot.enemy_structures.filter(
@@ -331,13 +323,15 @@ class BaseUnit(ABC):
     async def move_towards_safe_spot(
         self, unit: Unit, grid: np.ndarray, radius: int = 7
     ) -> None:
-
-        safe_spot: Point2 = self.find_closest_safe_spot(unit.position, grid, radius)
-        path: List[Point2] = self.map_data.pathfind(
-            unit.position, safe_spot, grid, sensitivity=6
-        )
-        if path:
-            unit.move(path[0])
+        if self.map_data:
+            safe_spot: Point2 = self.find_closest_safe_spot(unit.position, grid, radius)
+            path: List[Point2] = self.map_data.pathfind(
+                unit.position, safe_spot, grid, sensitivity=6
+            )
+            if path:
+                unit.move(path[0])
+        else:
+            unit.move(self.bot.start_location)
 
     # noinspection PyMethodMayBeStatic
     def range_vs_target(self, unit, target) -> float:
@@ -414,15 +408,11 @@ class BaseUnit(ABC):
             unit.radius + target.radius + unit_attack_range + bonus_distance
         )
 
-    def _find_closest_to_target(
-        self, target_pos: Point2, creep_grid: np.ndarray
-    ) -> Point2:
+    def _find_closest_to_target(self, target_pos: Point2, grid: np.ndarray) -> Point2:
         try:
-            nearest_spot = creep_grid[
+            nearest_spot = grid[
                 np.sum(
-                    np.square(
-                        np.abs(creep_grid - np.array([[target_pos.x, target_pos.y]]))
-                    ),
+                    np.square(np.abs(grid - np.array([[target_pos.x, target_pos.y]]))),
                     1,
                 ).argmin()
             ]
@@ -431,3 +421,18 @@ class BaseUnit(ABC):
             return pos
         except ValueError:
             return target_pos.towards(self.bot.start_location, 1)
+
+    @staticmethod
+    def get_random_position_from(from_position: Point2, distance: int):
+        """Start at a position and get a random new position `distance` away"""
+        angle: int = randint(0, 360)
+        return from_position + (distance * Point2((cos(angle), sin(angle))))
+
+    def position_blocks_expansion(self, position: Point2) -> bool:
+        """Will the creep tumor block expansion"""
+        blocks_expansion: bool = False
+        for expansion in self.bot.expansion_locations_list:
+            if position.distance_to(expansion) < 4:
+                blocks_expansion = True
+                break
+        return blocks_expansion

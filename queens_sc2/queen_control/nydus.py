@@ -8,14 +8,21 @@ from sc2.unit import Unit
 from sc2.units import Units
 import numpy as np
 
+from queens_sc2.kd_trees import KDTrees
 from queens_sc2.cache import property_cache_once_per_frame
 from queens_sc2.queen_control.base_unit import BaseUnit
 from queens_sc2.policy import Policy
 
 
 class Nydus(BaseUnit):
-    def __init__(self, bot: BotAI, nydus_policy: Policy, map_data: Optional["MapData"]):
-        super().__init__(bot, map_data)
+    def __init__(
+        self,
+        bot: BotAI,
+        kd_trees: KDTrees,
+        nydus_policy: Policy,
+        map_data: Optional["MapData"],
+    ):
+        super().__init__(bot, kd_trees, map_data)
         self.policy = nydus_policy
 
     @property_cache_once_per_frame
