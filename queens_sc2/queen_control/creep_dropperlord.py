@@ -43,6 +43,8 @@ class CreepDropperlord(BaseUnit):
         grid: Optional[np.ndarray] = None,
         unselectable_dropperlords: Optional[Union[Dict, Set]] = None,
     ) -> None:
+        if unselectable_dropperlords is None:
+            unselectable_dropperlords = {}
         self.creep_map = creep_map
         unit: Optional[Unit] = None
         dropperlord_queens: Units = queens.tags_in([unit_tag])
