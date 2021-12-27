@@ -224,16 +224,14 @@ class Creep(BaseUnit):
 
     def _clear_pending_positions(self) -> None:
         queen_tumors = self.bot.structures({UnitID.CREEPTUMORQUEEN})
-        if not queen_tumors:
-            return
 
         # recreate the pending position list, depending if a tumor has been placed closeby
         self.pending_positions = [
             pending_position
             for pending_position in self.pending_positions
             if not queen_tumors.closer_than(3, pending_position[0])
-            and self.bot.time - TIME_TO_CLEAR_PENDING_CREEP_POSITION
-            < pending_position[1]
+            and self.bot.time
+            > pending_position[1] + TIME_TO_CLEAR_PENDING_CREEP_POSITION
         ]
 
     def _find_creep_placement(self, target: Point2) -> Point2:

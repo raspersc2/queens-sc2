@@ -287,7 +287,7 @@ class BaseUnit(ABC):
             lambda unit: unit.type_id in GROUND_TOWNHALL_TYPES
             and unit.distance_to(pos) < 20
         )
-        return True if close_townhalls else False
+        return close_townhalls.amount > 0
 
     @staticmethod
     def is_position_safe(

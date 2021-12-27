@@ -137,7 +137,7 @@ class Queens:
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
         natural_position: Optional[Point2] = None,
-        unselectable_dropperlords: Optional[Union[Dict, Set]] = None,
+        creep_queen_dropperlords: Optional[Units] = None,
     ) -> None:
         """
         This is the main method your bot will call
@@ -153,8 +153,8 @@ class Queens:
             @param grid: Ground grid from SC2MapAnalyzer, used for Queen micro and creep spread
                                 (map_data should be plugged in via the constructor)
             @param natural_position: Own natural, not currently used
-            @param unselectable_dropperlords: Tags of dropperlords queens-sc2 shouldn't steal
-                                            If passing a dict, the keys should be the dropperlord tags
+            @param creep_queen_dropperlords: Dropperlord units that queens-sc2 can steal and use
+                                            Ensure creep dropperlord is enabled in the policy
         """
         self.kd_trees.update()
         if self.defence.policy.pass_own_threats:
@@ -195,7 +195,7 @@ class Queens:
             avoidance_grid,
             grid,
             natural_position,
-            unselectable_dropperlords,
+            creep_queen_dropperlords,
         )
 
         if self.control_canal and self.nydus_canals.ready:
@@ -277,7 +277,7 @@ class Queens:
         avoidance_grid: Optional[np.ndarray],
         grid: Optional[np.ndarray],
         natural_position: Optional[Point2],
-        unselectable_dropperlords: Optional[Union[Dict, Set]] = None,
+        creep_queen_dropperlords: Optional[Units] = None,
     ):
         all_close_threats: Units = air_threats + ground_threats
         creep_priority_enemy_units: Units = self._get_priority_enemy_units(
@@ -314,6 +314,7 @@ class Queens:
                     else creep_priority_enemy_units
                 )
             )
+
             if queen.tag in self.unit_controllers:
                 await self.unit_controllers[queen.tag].handle_unit(
                     air_threats_near_bases=air_threats,
@@ -328,15 +329,16 @@ class Queens:
                     natural_position=natural_position,
                 )
 
+        # Note this can't go in the main queen loop, since API doesn't pick up queen while in overlord
         if len(self.creep_dropperlod_tags) > 0:
             await self.creep_dropperlord.handle_queen_dropperlord(
                 creep_map=self.creep.creep_map,
-                unit_tag=self.creep_dropperlod_tags[0],
+                queen_tag=self.creep_dropperlod_tags[0],
                 queens=queens,
                 air_grid=air_grid,
                 avoidance_grid=avoidance_grid,
                 grid=grid,
-                unselectable_dropperlords=unselectable_dropperlords,
+                creep_queen_dropperlords=creep_queen_dropperlords,
             )
 
     async def _handle_transfuse(self, queen: Unit) -> bool:
@@ -713,13 +715,6 @@ class Queens:
             color=(0, 255, 255),
         )
 
-        self.bot.client.debug_text_screen(
-            f"Priority defend against: {str(self.defence.policy.priority_defence_list)}",
-            pos=(0.2, 0.70),
-            size=13,
-            color=(0, 255, 255),
-        )
-
         queens: Units = self.bot.units(UnitID.QUEEN)
         if queens:
             for queen in queens:
@@ -732,6 +727,10 @@ class Queens:
                     self._draw_on_world(queen.position, f"INJECT {queen.tag}")
                 if queen.tag in self.nydus_queen_tags:
                     self._draw_on_world(queen.position, f"NYDUS {queen.tag}")
+                if queen.tag in self.creep_dropperlod_tags:
+                    self._draw_on_world(
+                        queen.position, f"CREEP DROPPERLORD {queen.tag}"
+                    )
 
         tumors: Units = self.bot.structures.filter(
             lambda s: s.type_id == UnitID.CREEPTUMORBURROWED

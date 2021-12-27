@@ -169,6 +169,24 @@ If using nyduses, make sure the nydus target is updated, this is not where the N
 self.queens.update_nydus_target(self.enemy_start_locations[0])
 ```
 
+### Creep Dropperlord Queens
+`queens-sc2` now supports a dropperlord and queen combo. The dropperlord will find a creep target, drop the queen off and poop creep while the queen lays a tumor. 
+After which the queens is picked back up and flown to the next creep location.
+
+** Only supports a single dropperlord and queen combo **
+
+`queens-sc2` will steal a creep queen so ensure your policy reflects this. There are already sane defaults for the creep dropperlord but refer to policy example above.
+`queens-sc2` will NOT morph the dropperlord, and you should pass in a `Units` collection of dropperlords via the main `manage_queens` method, for example:
+
+```python
+await self.queens.manage_queens(
+    iteration, 
+    creep_queen_dropperlords=self.my_freely_available_dropperlords
+)
+```
+
+Despite only a single dropperlord being supported currently, a `Units` collection is required, in case multiple dropperlords are supported in the future.
+
 ### SC2 Map Analyzer support
 `queens-sc2` comes with completely optional support for [SC2 Map Analyzer](https://github.com/eladyaniv01/SC2MapAnalysis), 
 currently this allows for improved creep spread and better Queen control. A priority avoidance grid may be passed, with threats prepopulated on the grid so that Queens avoid areas.

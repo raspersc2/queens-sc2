@@ -15,7 +15,7 @@ from queens_sc2.policy import Policy
 class CreepDropperlord(BaseUnit):
     creep_map: np.ndarray
     # allow queen time to get the order to plant a tumor
-    LOCK_OL_LOADING_FOR: float = 3.0
+    LOCK_OL_LOADING_FOR: float = 3.5
 
     def __init__(
         self,
@@ -36,20 +36,21 @@ class CreepDropperlord(BaseUnit):
     async def handle_queen_dropperlord(
         self,
         creep_map: np.ndarray,
-        unit_tag: int,
+        queen_tag: int,
         queens: Units,
         air_grid: Optional[np.ndarray] = None,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
-        unselectable_dropperlords: Optional[Union[Dict, Set]] = None,
+        creep_queen_dropperlords: Optional[Units] = None,
     ) -> None:
-        if unselectable_dropperlords is None:
-            unselectable_dropperlords = {}
         self.creep_map = creep_map
-        unit: Optional[Unit] = None
-        dropperlord_queens: Units = queens.tags_in([unit_tag])
+        queen: Optional[Unit] = None
+        dropperlord_queens: Units = queens.tags_in([queen_tag])
         if dropperlord_queens:
-            unit = dropperlord_queens.first
+            queen = dropperlord_queens.first
+
+        if self.map_data and not self.is_position_safe(grid, self.current_creep_target):
+            self._find_new_creep_target(air_grid, grid)
 
         self.creep_targets = self.policy.target_expansions
         if len(self.creep_targets) == 0:
@@ -57,38 +58,26 @@ class CreepDropperlord(BaseUnit):
 
         # need an initial target
         if self.first_iteration:
-            self._find_new_creep_target(grid)
+            self._find_new_creep_target(air_grid, grid)
             self.first_iteration = False
 
-        dropperlord: Optional[Unit] = None
         keep_queen_safe: bool = False
-        if unit and await self.keep_queen_safe(avoidance_grid, grid, unit):
+        if queen and await self.keep_queen_safe(avoidance_grid, grid, queen):
             keep_queen_safe = True
 
-        our_dropperlords: Units = self.bot.units.filter(
-            lambda u: u.tag == self.dropperlord_tag
-        )
-        if not our_dropperlords:
-            if overlords := self.bot.units.filter(
-                lambda u: u.type_id == UnitID.OVERLORD
-                and u.health_percentage > 0.95
-                and u.tag not in unselectable_dropperlords
-            ).sorted_by_distance_to(self.bot.start_location):
-                dropperlord: Unit = overlords.first
-                self.dropperlord_tag = dropperlord.tag
-        else:
-            dropperlord: Unit = our_dropperlords.first
-            if dropperlord.type_id == UnitID.OVERLORD and self.bot.can_afford(
-                UnitID.OVERLORDTRANSPORT
-            ):
-                dropperlord(AbilityId.MORPH_OVERLORDTRANSPORT)
-            if dropperlord.type_id == UnitID.OVERSEER:
-                self.dropperlord_tag = 0
-            if dropperlord and dropperlord.type_id == UnitID.OVERLORDTRANSPORT:
-                await self._manage_queen_dropperlord(dropperlord, air_grid, grid, unit)
+        if creep_queen_dropperlords:
+            ready_dropperlords: Units = creep_queen_dropperlords.filter(
+                lambda u: u.type_id == UnitID.OVERLORDTRANSPORT
+            )
+            if ready_dropperlords:
+                await self._manage_queen_dropperlord(
+                    ready_dropperlords.first, air_grid, grid, queen
+                )
 
-        if unit and not keep_queen_safe:
-            await self._manage_dropperlord_queen(dropperlord, grid, unit)
+        if queen and not keep_queen_safe:
+            await self._manage_dropperlord_queen(
+                creep_queen_dropperlords, air_grid, grid, queen
+            )
 
     async def handle_unit(
         self,
@@ -109,8 +98,13 @@ class CreepDropperlord(BaseUnit):
         self.policy = policy
 
     async def _manage_dropperlord_queen(
-        self, dropperlord: Optional[Unit], grid: np.ndarray, queen: Unit
+        self,
+        dropperlords: Optional[Units],
+        air_grid: np.ndarray,
+        grid: np.ndarray,
+        queen: Unit,
     ) -> None:
+        dropperlord: Unit = dropperlords.first if dropperlords else None
         if (
             dropperlord and queen.tag in dropperlord.passengers_tags
         ) or queen.is_using_ability(AbilityId.BUILD_CREEPTUMOR_QUEEN):
@@ -119,7 +113,7 @@ class CreepDropperlord(BaseUnit):
         if queen.distance_to(self.current_creep_target) < 15:
             if queen.energy >= 25 and self.bot.has_creep(self.current_creep_target):
                 queen(AbilityId.BUILD_CREEPTUMOR_QUEEN, self.current_creep_target)
-                self._find_new_creep_target(grid)
+                self._find_new_creep_target(air_grid, grid)
                 return
             else:
                 await self.move_towards_safe_spot(queen, grid)
@@ -127,9 +121,10 @@ class CreepDropperlord(BaseUnit):
         elif (
             dropperlord
             and dropperlord.is_ready
+            and dropperlord.health_percentage > 0.2
             and self.bot.time > self.unloaded_at + self.LOCK_OL_LOADING_FOR
         ):
-            if queen.distance_to(dropperlord) < 3:
+            if queen.distance_to(dropperlord) < 10:
                 queen(AbilityId.SMART, dropperlord)
             else:
                 move_to: Point2 = dropperlord.position
@@ -153,19 +148,28 @@ class CreepDropperlord(BaseUnit):
     ) -> None:
         if not dropperlord:
             return
-        if not dropperlord.is_using_ability(AbilityId.BEHAVIOR_GENERATECREEPON):
+        if (
+            not dropperlord.is_using_ability(AbilityId.BEHAVIOR_GENERATECREEPON)
+            and dropperlord.cargo_used == 0
+        ):
             dropperlord(AbilityId.BEHAVIOR_GENERATECREEPON)
 
         if dropperlord.health_percentage < 0.2:
             dropperlord(AbilityId.UNLOADALLAT_OVERLORD, dropperlord.position)
             self.dropperlord_tag = 0
+            return
 
         # move dropperlord to queen if she is not inside right now
         if dropperlord.cargo_used == 0:
             await self._move_dropperlord_to_queen(dropperlord, air_grid, queen)
         # queen in dropperlord, move to a target
         else:
-            if dropperlord.distance_to(self.current_creep_target) > 1:
+            if (
+                self.bot.distance_math_hypot_squared(
+                    dropperlord.position, self.current_creep_target
+                )
+                > 25
+            ):
                 if self._current_area_has_no_creep(grid, dropperlord.position):
                     self.current_creep_target = dropperlord.position
                     return
@@ -199,7 +203,12 @@ class CreepDropperlord(BaseUnit):
             and len(dropperlord.passengers) == 0
             and not queen.is_using_ability(AbilityId.BUILD_CREEPTUMOR_QUEEN)
         ):
-            if dropperlord.distance_to(queen) > 3:
+            if (
+                self.bot.distance_math_hypot_squared(
+                    dropperlord.position, queen.position
+                )
+                > 100.0
+            ):
                 if self.map_data:
                     path: List[Point2] = self.map_data.pathfind(
                         dropperlord.position, queen.position, grid, sensitivity=5
@@ -211,7 +220,7 @@ class CreepDropperlord(BaseUnit):
             elif self.bot.time > self.unloaded_at + self.LOCK_OL_LOADING_FOR:
                 dropperlord(AbilityId.LOAD_OVERLORD, queen)
 
-    def _find_new_creep_target(self, grid: np.ndarray):
+    def _find_new_creep_target(self, air_grid: np.ndarray, grid: np.ndarray):
         """
         target_area should be an expansion location we want to creep
         However, we don't want to block the target for ourselves
@@ -225,7 +234,11 @@ class CreepDropperlord(BaseUnit):
             random_target: Point2 = self.get_random_position_from(
                 from_position=target_area, distance=8
             )
-            if self.map_data and not self.is_position_safe(grid, random_target):
+            if (
+                self.map_data
+                and not self.is_position_safe(grid, random_target)
+                and not self.is_position_safe(air_grid, random_target)
+            ):
                 continue
             if self.bot.get_terrain_z_height(
                 random_target
