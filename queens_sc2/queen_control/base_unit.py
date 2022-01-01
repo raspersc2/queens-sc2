@@ -184,8 +184,9 @@ class BaseUnit(ABC):
         if not queen:
             return
 
-        in_range_enemies: Units = self.bot.enemy_units.in_attack_range_of(queen)
-        in_range_enemies = in_range_enemies.exclude_type({UnitID.EGG, UnitID.LARVA})
+        in_range_enemies: Units = self.bot.enemy_units.in_attack_range_of(queen).filter(
+            lambda u: u.type_id not in EXCLUDE_FROM_ATTACK_TARGETS
+        )
         if in_range_enemies:
             target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
             if target:

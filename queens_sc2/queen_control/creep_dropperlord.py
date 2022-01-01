@@ -105,9 +105,7 @@ class CreepDropperlord(BaseUnit):
         queen: Unit,
     ) -> None:
         dropperlord: Unit = dropperlords.first if dropperlords else None
-        if (
-            dropperlord and queen.tag in dropperlord.passengers_tags
-        ) or queen.is_using_ability(AbilityId.BUILD_CREEPTUMOR_QUEEN):
+        if dropperlord and queen.tag in dropperlord.passengers_tags:
             return
 
         if queen.distance_to(self.current_creep_target) < 15:
@@ -201,7 +199,7 @@ class CreepDropperlord(BaseUnit):
         if (
             dropperlord.is_ready
             and len(dropperlord.passengers) == 0
-            and not queen.is_using_ability(AbilityId.BUILD_CREEPTUMOR_QUEEN)
+            # and not queen.is_using_ability(AbilityId.BUILD_CREEPTUMOR_QUEEN)
         ):
             if (
                 self.bot.distance_math_hypot_squared(

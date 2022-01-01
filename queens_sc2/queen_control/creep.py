@@ -95,7 +95,7 @@ class Creep(BaseUnit):
             and self.bot.enemy_units
             and self.bot.enemy_units.filter(
                 lambda enemy: enemy.can_attack_ground
-                and enemy.distance_to(unit) < max(unit.air_range, unit.ground_range)
+                and enemy.distance_to(unit) < max(unit.air_range, unit.ground_range) + 2
                 and enemy.type_id not in {UnitID.OVERLORD}
             )
         ):
