@@ -183,9 +183,9 @@ class BaseUnit(ABC):
     ) -> None:
         if not queen:
             return
-
+        enemy: Units = enemy.filter(lambda u: u.is_visible)
         in_range_enemies: Units = self.bot.enemy_units.in_attack_range_of(queen).filter(
-            lambda u: u.type_id not in EXCLUDE_FROM_ATTACK_TARGETS
+            lambda u: u.type_id not in EXCLUDE_FROM_ATTACK_TARGETS and u.is_visible
         )
         if in_range_enemies:
             target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
