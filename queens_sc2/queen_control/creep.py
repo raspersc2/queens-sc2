@@ -168,6 +168,9 @@ class Creep(BaseUnit):
             or self.position_near_enemy_townhall(pos)
             or self.position_near_nydus_worm(pos)
             or self._existing_tumors_too_close(pos)
+            or self.kd_trees.enemy_units_in_range(queen.position, 11).filter(
+                lambda u: not u.is_flying
+            )
         ):
             should_lay_tumor = False
 

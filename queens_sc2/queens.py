@@ -137,7 +137,7 @@ class Queens:
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
         natural_position: Optional[Point2] = None,
-        creep_queen_dropperlords: Optional[Units] = None,
+        creep_queen_dropperlord_tags: Optional[Set[int]] = None,
     ) -> None:
         """
         This is the main method your bot will call
@@ -153,7 +153,7 @@ class Queens:
             @param grid: Ground grid from SC2MapAnalyzer, used for Queen micro and creep spread
                                 (map_data should be plugged in via the constructor)
             @param natural_position: Own natural, not currently used
-            @param creep_queen_dropperlords: Dropperlord units that queens-sc2 can steal and use
+            @param creep_queen_dropperlord_tags: Dropperlord unit tags that queens-sc2 can steal and use
                                             Ensure creep dropperlord is enabled in the policy
         """
         self.kd_trees.update()
@@ -195,7 +195,7 @@ class Queens:
             avoidance_grid,
             grid,
             natural_position,
-            creep_queen_dropperlords,
+            creep_queen_dropperlord_tags,
         )
 
         if self.control_canal and self.nydus_canals.ready:
@@ -277,7 +277,7 @@ class Queens:
         avoidance_grid: Optional[np.ndarray],
         grid: Optional[np.ndarray],
         natural_position: Optional[Point2],
-        creep_queen_dropperlords: Optional[Units] = None,
+        creep_queen_dropperlord_tags: Optional[Set[int]] = None,
     ):
         all_close_threats: Units = air_threats + ground_threats
         creep_priority_enemy_units: Units = self._get_priority_enemy_units(
@@ -294,7 +294,7 @@ class Queens:
         for queen in queens:
             if queen.tag in self.creep_dropperlod_tags:
                 continue
-            self._assign_queen_role(queen)
+            self._assign_queen_role(queen, creep_queen_dropperlord_tags)
             # if any queen has more than 50 energy, she may transfuse at any time it's required
             if queen.energy >= self.TRANSFUSE_ENERGY_COST:
                 # _handle_transfuse method will return True if queen will transfuse
@@ -338,7 +338,7 @@ class Queens:
                 air_grid=air_grid,
                 avoidance_grid=avoidance_grid,
                 grid=grid,
-                creep_queen_dropperlords=creep_queen_dropperlords,
+                creep_queen_dropperlord_tags=creep_queen_dropperlord_tags,
             )
 
     async def _handle_transfuse(self, queen: Unit) -> bool:
@@ -360,7 +360,9 @@ class Queens:
             return True
         return False
 
-    def _assign_queen_role(self, queen: Unit) -> None:
+    def _assign_queen_role(
+        self, queen: Unit, creep_queen_dropperlord_tags: Optional[Set[int]] = None
+    ) -> None:
         """
         If queen does not have role, work out from the policy what role it should have
         If 2 nydus worms are present, steal queen_control from the relevant role set in policy
@@ -371,7 +373,8 @@ class Queens:
         """
         # If this queen has a role, we might want to steal it for the nydus, or for a creep dropperlord
         self._check_nydus_role(queen)
-        self._check_creep_dropperlord_role(queen)
+        if creep_queen_dropperlord_tags and len(creep_queen_dropperlord_tags) > 0:
+            self._check_creep_dropperlord_role(queen)
 
         if self._queen_has_role(queen):
             return
@@ -449,18 +452,11 @@ class Queens:
         ):
             return
 
-        lair_tech_ready: bool = False
-        for th in self.bot.townhalls:
-            if (th.type_id == UnitID.LAIR and th.is_ready) or th.type_id == UnitID.HIVE:
-                lair_tech_ready = True
-                break
-
-        if lair_tech_ready:
-            self.remove_unit(queen.tag)
-            self.assigned_queen_tags.add(queen.tag)
-            self.creep_dropperlod_tags.append(queen.tag)
-            if queen.tag in self.unit_controllers:
-                del self.unit_controllers[queen.tag]
+        self.remove_unit(queen.tag)
+        self.assigned_queen_tags.add(queen.tag)
+        self.creep_dropperlod_tags.append(queen.tag)
+        if queen.tag in self.unit_controllers:
+            del self.unit_controllers[queen.tag]
 
     def _check_nydus_role(self, queen: Unit) -> None:
         """

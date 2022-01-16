@@ -1,8 +1,7 @@
-from typing import Dict, List, Optional, Set, Union
+from typing import List, Optional, Set
 import numpy as np
 from sc2 import BotAI
 from sc2.ids.ability_id import AbilityId
-from sc2.ids.unit_typeid import UnitTypeId as UnitID
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
@@ -41,7 +40,7 @@ class CreepDropperlord(BaseUnit):
         air_grid: Optional[np.ndarray] = None,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
-        creep_queen_dropperlords: Optional[Units] = None,
+        creep_queen_dropperlord_tags: Optional[Set[int]] = None,
     ) -> None:
         self.creep_map = creep_map
         queen: Optional[Unit] = None
@@ -65,19 +64,19 @@ class CreepDropperlord(BaseUnit):
         if queen and await self.keep_queen_safe(avoidance_grid, grid, queen):
             keep_queen_safe = True
 
-        if creep_queen_dropperlords:
-            ready_dropperlords: Units = creep_queen_dropperlords.filter(
-                lambda u: u.type_id == UnitID.OVERLORDTRANSPORT
+        if len(creep_queen_dropperlord_tags) > 0:
+            ready_dropperlords: Units = self.bot.units.filter(
+                lambda u: u.tag in creep_queen_dropperlord_tags
             )
             if ready_dropperlords:
                 await self._manage_queen_dropperlord(
                     ready_dropperlords.first, air_grid, grid, queen
                 )
 
-        if queen and not keep_queen_safe:
-            await self._manage_dropperlord_queen(
-                creep_queen_dropperlords, air_grid, grid, queen
-            )
+            if queen and not keep_queen_safe:
+                await self._manage_dropperlord_queen(
+                    ready_dropperlords, air_grid, grid, queen
+                )
 
     async def handle_unit(
         self,
