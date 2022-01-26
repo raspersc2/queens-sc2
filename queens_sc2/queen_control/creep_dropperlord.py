@@ -219,6 +219,10 @@ class CreepDropperlord(BaseUnit):
         target_area should be an expansion location we want to creep
         However, we don't want to block the target for ourselves
         """
+        # prevent rare crash
+        if len(self.creep_targets) == 0:
+            return self.bot.game_info.map_center
+
         self.creep_target_index += 1
         if self.creep_target_index >= len(self.creep_targets):
             self.creep_target_index = 0
