@@ -294,7 +294,7 @@ class ZergBot(BotAI):
 
 if __name__ == "__main__":
     # Local game
-    random_map = random.choice(["EverDreamLE"])
+    random_map = random.choice(["BlackburnAIE"])
     random_race = random.choice([Race.Zerg, Race.Terran, Race.Protoss])
     bot = Bot(Race.Zerg, ZergBot())
     run_game(

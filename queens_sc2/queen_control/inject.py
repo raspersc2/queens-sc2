@@ -43,11 +43,17 @@ class Inject(BaseUnit):
         if ths:
             th: Unit = ths.first
             if priority_enemy_units:
-                await self.do_queen_micro(unit, priority_enemy_units, grid)
+                await self.do_queen_micro(
+                    unit, priority_enemy_units, grid, attack_static_defence=True
+                )
             elif self.policy.defend_against_ground and ground_threats_near_bases:
-                await self.do_queen_micro(unit, ground_threats_near_bases, grid)
+                await self.do_queen_micro(
+                    unit, ground_threats_near_bases, grid, attack_static_defence=True
+                )
             elif self.policy.defend_against_air and air_threats_near_bases:
-                await self.do_queen_micro(unit, air_threats_near_bases, grid)
+                await self.do_queen_micro(
+                    unit, air_threats_near_bases, grid, attack_static_defence=True
+                )
             else:
                 if unit.energy >= 25:
                     unit(AbilityId.EFFECT_INJECTLARVA, th)

@@ -82,13 +82,17 @@ class Creep(BaseUnit):
             and air_threats_near_bases
             and not should_spread_creep
         ):
-            await self.do_queen_micro(unit, air_threats_near_bases, grid)
+            await self.do_queen_micro(
+                unit, air_threats_near_bases, grid, attack_static_defence=False
+            )
         elif (
             self.policy.defend_against_ground
             and ground_threats_near_bases
             and not should_spread_creep
         ):
-            await self.do_queen_micro(unit, ground_threats_near_bases, grid)
+            await self.do_queen_micro(
+                unit, ground_threats_near_bases, grid, attack_static_defence=False
+            )
         # queen is on route to a tumor but encounters enemy units
         elif (
             unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR)

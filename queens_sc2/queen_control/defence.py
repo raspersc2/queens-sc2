@@ -38,15 +38,17 @@ class Defence(BaseUnit):
         if await self.keep_queen_safe(avoidance_grid, grid, unit):
             return
         if priority_enemy_units:
-            await self.do_queen_micro(unit, priority_enemy_units, grid)
+            await self.do_queen_micro(
+                unit, priority_enemy_units, grid, attack_static_defence=False
+            )
         elif self.policy.attack_condition():
             await self.do_queen_offensive_micro(unit, self.policy.attack_target)
         elif self.policy.defend_against_ground and ground_threats_near_bases:
-            await self.do_queen_micro(unit, ground_threats_near_bases, grid)
+            await self.do_queen_micro(
+                unit, ground_threats_near_bases, grid, attack_static_defence=False
+            )
         elif self.policy.defend_against_air and air_threats_near_bases:
             await self.do_queen_micro(unit, air_threats_near_bases, grid)
-        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
-            await self.do_queen_micro(unit, self.bot.enemy_units, grid)
         elif (
             self.map_data
             and grid is not None

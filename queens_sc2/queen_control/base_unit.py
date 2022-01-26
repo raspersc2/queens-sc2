@@ -39,6 +39,13 @@ EXCLUDE_FROM_POS_NEAR_ENEMY: Set[UnitID] = {
     UnitID.OVERSEER,
     UnitID.OBSERVER,
 }
+STATIC_DEFENCE: Set[UnitID] = {
+    UnitID.BUNKER,
+    UnitID.PHOTONCANNON,
+    UnitID.PLANETARYFORTRESS,
+    UnitID.SHIELDBATTERY,
+    UnitID.SPINECRAWLER,
+}
 
 
 class BaseUnit(ABC):
@@ -179,14 +186,25 @@ class BaseUnit(ABC):
         return False
 
     async def do_queen_micro(
-        self, queen: Unit, enemy: Units, grid: Optional[np.ndarray] = None
+        self,
+        queen: Unit,
+        enemy: Units,
+        grid: Optional[np.ndarray] = None,
+        attack_static_defence: bool = True,
     ) -> None:
         if not queen:
             return
-        enemy: Units = enemy.filter(lambda u: u.is_visible)
-        in_range_enemies: Units = self.bot.enemy_units.in_attack_range_of(queen).filter(
-            lambda u: u.type_id not in EXCLUDE_FROM_ATTACK_TARGETS and u.is_visible
+        if attack_static_defence:
+            excluded_enemy: Set[UnitID] = EXCLUDE_FROM_ATTACK_TARGETS
+        else:
+            excluded_enemy: Set[UnitID] = EXCLUDE_FROM_ATTACK_TARGETS.union(
+                STATIC_DEFENCE
+            )
+        enemy: Units = enemy.filter(
+            lambda u: u.type_id not in excluded_enemy
+            and (not u.is_cloaked or u.is_cloaked and u.is_revealed)
         )
+        in_range_enemies: Units = enemy.in_attack_range_of(queen)
         if in_range_enemies:
             target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
             if target:
@@ -203,10 +221,13 @@ class BaseUnit(ABC):
                 queen.attack(in_range_enemies.center)
         elif enemy:
             target = enemy.closest_to(queen)
-            queen.attack(target.position)
-        elif self.bot.all_enemy_units:
-            target = self.bot.all_enemy_units.closest_to(queen)
-            queen.attack(target.position)
+            queen.move(target.position)
+        else:
+            if self.map_data and grid is not None:
+                await self.move_towards_safe_spot(queen, grid)
+            else:
+                # TODO: Smarter behaviour for users without MapAnalyzer (`self.map_data`)
+                queen.move(self.policy.rally_point)
 
     async def do_queen_offensive_micro(
         self, queen: Unit, offensive_pos: Point2
