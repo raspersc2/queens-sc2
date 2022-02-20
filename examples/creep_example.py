@@ -1,8 +1,11 @@
 import random
 from typing import Dict, Optional, List, Set
 
-from sc2 import BotAI, Difficulty, Race, maps, run_game
+from sc2 import maps
+from sc2.bot_ai import BotAI
+from sc2.data import Race, Difficulty
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
+from sc2.main import run_game
 from sc2.player import Bot, Computer
 from sc2.position import Point2
 from sc2.unit import Unit
@@ -233,7 +236,7 @@ class ZergBot(BotAI):
 
 if __name__ == "__main__":
     # Local game
-    random_map = random.choice(["EverDreamLE"])
+    random_map = random.choice(["2000AtmospheresAIE"])
     random_race = random.choice([Race.Zerg, Race.Terran, Race.Protoss])
     bot = Bot(Race.Zerg, ZergBot())
     run_game(
