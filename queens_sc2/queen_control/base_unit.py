@@ -5,7 +5,8 @@ from random import randint
 from math import cos, sin
 
 import numpy as np
-from sc2 import BotAI
+
+from sc2.bot_ai import BotAI
 from sc2.constants import UNIT_COLOSSUS
 from sc2.ids.buff_id import BuffId
 from sc2.ids.unit_typeid import UnitTypeId as UnitID

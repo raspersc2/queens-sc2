@@ -1,6 +1,7 @@
 from typing import List, Optional, Set
 import numpy as np
-from sc2 import BotAI
+
+from sc2.bot_ai import BotAI
 from sc2.ids.ability_id import AbilityId
 from sc2.position import Point2
 from sc2.unit import Unit
