@@ -29,9 +29,12 @@ class QueensSc2Manager(ManagerBase):
 
         if self.use_sc2_map_analyzer:
             from MapAnalyzer import MapData
-            self.ground_grid: np.ndarray = MapData(self.ai).get_pyastar_grid()
+            map_data = MapData(self.ai)
+            self.ground_grid: np.ndarray = map_data.get_pyastar_grid()
+            self.air_grid = map_data.get_clean_air_grid()
         else:
             self.ground_grid = None
+            self.air_grid = None
 
         self.queens = Queens(
             self.ai, debug=self.debug, queen_policy=self.queen_policy, map_data=self.map_data
@@ -43,7 +46,7 @@ class QueensSc2Manager(ManagerBase):
             self.update_attack_target(await self._find_attack_position(self.ai))
 
         # depending on usecase it may not need a fresh grid every step
-        await self.queens.manage_queens(self.knowledge.iteration, grid=self.ground_grid)
+        await self.queens.manage_queens(self.knowledge.iteration, air_grid=self.air_grid, grid=self.ground_grid)
 
     async def post_update(self):
         pass
