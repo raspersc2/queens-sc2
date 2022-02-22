@@ -1,2 +1,2 @@
 from .acts import SetQueensSc2Policy
-from .managers import QueensSc2Manager
+from .manager import QueensSc2Manager
