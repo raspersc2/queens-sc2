@@ -29,29 +29,21 @@ class QueensSc2Manager(ManagerBase):
 
         if self.use_sc2_map_analyzer:
             from MapAnalyzer import MapData
-            self.map_data = MapData(self.ai)
+            self.ground_grid: np.ndarray = MapData(self.ai).get_pyastar_grid()
         else:
-            self.map_data = None
+            self.ground_grid = None
 
         self.queens = Queens(
             self.ai, debug=self.debug, queen_policy=self.queen_policy, map_data=self.map_data
         )
 
     async def update(self):
-        if self.map_data:
-            avoidance_grid: np.ndarray = self.map_data.get_pyastar_grid()
-            # add cost to avoidance_grid, for example positions of nukes / biles / storms etc
-            ground_grid: np.ndarray = self.map_data.get_pyastar_grid()
-            # you may want to add cost etc depending on your bot,
-        else:
-            avoidance_grid = None
-            ground_grid = None
 
         if self.auto_manage_attack_target:
             self.update_attack_target(await self._find_attack_position(self.ai))
 
         # depending on usecase it may not need a fresh grid every step
-        await self.queens.manage_queens(self.knowledge.iteration, avoidance_grid=avoidance_grid, grid=ground_grid)
+        await self.queens.manage_queens(self.knowledge.iteration, grid=self.ground_grid)
 
     async def post_update(self):
         pass
