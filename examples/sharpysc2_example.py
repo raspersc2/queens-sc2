@@ -135,16 +135,14 @@ class SharpyExample(KnowledgeBot):
             SequentialList(
                 Step(None, SetQueensSc2Policy(mid_game_queen_policy, policy_name="mid_game_queen_policy"),
                      skip_until=lambda ai: ai.time > 480),
-                Step(None, DistributeWorkers(max_gas=0), skip=lambda ai: ai.time > 480),
-                Step(None, DistributeWorkers(max_gas=0),
-                     skip_until=lambda ai: ai.time > 480 and self.knowledge.iteration % 4 == 0),
+                DistributeWorkers(max_gas=0),
                 Step(None, SpeedMining(), lambda ai: ai.client.game_step > 5),
                 AutoOverLord(),
                 BuildOrder(
                     Step(None, ActUnit(UnitTypeId.DRONE, UnitTypeId.LARVA), skip=build_drones),
                     Step(None, ActUnit(UnitTypeId.QUEEN, UnitTypeId.HATCHERY)),
-                    Expand(4),  # 4 mining bases
-                    ActBuilding(UnitTypeId.HATCHERY, 40),  # Macro hatcheries - 20 includes mining bases
+                    Expand(4),  # Maintain 4 mining bases
+                    ActBuilding(UnitTypeId.HATCHERY, 20),  # Macro hatcheries - 20 includes mining bases
                 )
             ),
         )
