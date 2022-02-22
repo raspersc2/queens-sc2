@@ -48,7 +48,7 @@ class QueensSc2Manager(ManagerBase):
             ground_grid = None
 
         if self.auto_manage_attack_target:
-            self.update_attack_target(await self.find_attack_position(self.ai))
+            self.update_attack_target(await self._find_attack_position(self.ai))
 
         # depending on usecase it may not need a fresh grid every step
         await self.queens.manage_queens(self.knowledge.iteration, avoidance_grid=avoidance_grid, grid=ground_grid)
@@ -63,7 +63,7 @@ class QueensSc2Manager(ManagerBase):
         self.queens.update_attack_target(attack_target)
 
     # Extracted from sharpy's PlanFinishEnemy act
-    async def find_attack_position(self, ai):
+    async def _find_attack_position(self, ai):
         main_pos = self.zone_manager.own_main_zone.center_location
 
         target = random.choice(list(ai.expansion_locations_list))
