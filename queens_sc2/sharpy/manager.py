@@ -40,9 +40,7 @@ class QueensSc2Manager(ManagerBase):
             self.ground_grid = None
             self.air_grid = None
 
-        self.queens = Queens(
-            self.ai, debug=self.debug, queen_policy=self.queen_policy, map_data=self.map_data
-        )
+        self.queens = Queens(self.ai, debug=self.debug, queen_policy=self.queen_policy)
 
         knowledge.register_on_unit_destroyed_listener(self.on_unit_destroyed)
 
