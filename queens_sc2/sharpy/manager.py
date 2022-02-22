@@ -1,13 +1,13 @@
-import random
 from typing import Dict
 
 import numpy as np
-
-from queens_sc2.queens import Queens
+from sc2.ids.unit_typeid import UnitTypeId
+from sc2.position import Point2
+from sc2.units import Units
 from sharpy.events import UnitDestroyedEvent
 from sharpy.managers import ManagerBase
 
-from sc2.position import Point2
+from queens_sc2.queens import Queens
 
 
 class QueensSc2Manager(ManagerBase):
@@ -47,7 +47,7 @@ class QueensSc2Manager(ManagerBase):
     async def update(self):
 
         if self.auto_manage_attack_target:
-            self.update_attack_target(await self._find_attack_position(self.ai))
+            self.update_attack_target(await self._find_attack_position())
 
         # depending on usecase it may not need a fresh grid every step
         await self.queens.manage_queens(self.knowledge.iteration, air_grid=self.air_grid, grid=self.ground_grid)
@@ -62,18 +62,27 @@ class QueensSc2Manager(ManagerBase):
         self.queens.update_attack_target(attack_target)
 
     # Extracted from sharpy's PlanFinishEnemy act
-    async def _find_attack_position(self, ai):
-        main_pos = self.zone_manager.own_main_zone.center_location
-
-        target = random.choice(list(ai.expansion_locations_list))
-        last_distance2 = target.distance_to(main_pos)
-        target_known = False
-        if ai.enemy_structures.exists:
-            for building in ai.enemy_structures:
-                if building.health > 0:
-                    current_distance2 = target.distance_to(main_pos)
-                    if not target_known or current_distance2 < last_distance2:
-                        target = building.position
-                        last_distance2 = current_distance2
-                        target_known = True
-        return target
+    async def _find_attack_position(self):
+        enemy_units: Units = self.ai.enemy_units.filter(
+            lambda u: u.type_id
+                      not in {
+                          UnitTypeId.SCV,
+                          UnitTypeId.DRONE,
+                          UnitTypeId.PROBE,
+                          UnitTypeId.MULE,
+                          UnitTypeId.LARVA,
+                          UnitTypeId.EGG,
+                          UnitTypeId.CHANGELING,
+                          UnitTypeId.CHANGELINGZERGLING,
+                          UnitTypeId.CHANGELINGZERGLINGWINGS,
+                          UnitTypeId.REAPER,
+                      }
+                      and not u.is_flying
+        )
+        enemy_structures: Units = self.ai.enemy_structures
+        if enemy_units:
+            return enemy_units.closest_to(self.ai.start_location).position
+        elif enemy_structures:
+            return enemy_structures.closest_to(self.ai.start_location).position
+        else:
+            return self.ai.enemy_start_locations[0]
