@@ -4,6 +4,7 @@ from typing import Dict
 import numpy as np
 
 from queens_sc2.queens import Queens
+from sharpy.events import UnitDestroyedEvent
 from sharpy.managers import ManagerBase
 
 from sc2.position import Point2
@@ -24,6 +25,9 @@ class QueensSc2Manager(ManagerBase):
         self.use_sc2_map_analyzer = use_sc2_map_analyzer
         self.auto_manage_attack_target = auto_manage_attack_target
 
+    def on_unit_destroyed(self, event: UnitDestroyedEvent):
+        self.queens.remove_unit(event.unit)
+
     async def start(self, knowledge: "Knowledge"):
         await super().start(knowledge)
 
@@ -39,6 +43,8 @@ class QueensSc2Manager(ManagerBase):
         self.queens = Queens(
             self.ai, debug=self.debug, queen_policy=self.queen_policy, map_data=self.map_data
         )
+
+        knowledge.register_on_unit_destroyed_listener(self.on_unit_destroyed)
 
     async def update(self):
 
