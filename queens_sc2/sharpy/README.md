@@ -34,7 +34,7 @@ You can use `SetQueensSc2Policy` in your sharpy build order to set the policy du
         }
 
         mid_game_queen_policy = {
-            # define your early game policy here
+            # define your mid game policy here
         }
         
         return BuildOrder(
