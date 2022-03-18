@@ -38,5 +38,5 @@ jobs:
       run: |
         docker run -it -d --name app1 test_image
         docker exec -i app1 bash -c "tree"
-        docker exec -i app1 bash -c "python ./.github/travis_test_script.py ./test/${{ matrix.opponents }}"
+        docker exec -i app1 bash -c "python .github/travis_test_script.py ./test/${{ matrix.opponents }}"
         docker rm -f app1
