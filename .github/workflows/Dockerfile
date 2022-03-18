@@ -56,7 +56,4 @@ RUN mv .github/workflows/maps/* ~/StarCraftII/maps
 
 RUN python -m pip install -r .github/workflows/docker-requirements.txt
 
-# compile code
-RUN python setup.py build_ext --inplace
-
 ENTRYPOINT [ "/bin/bash" ]
