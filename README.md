@@ -3,8 +3,14 @@ queens-sc2 is a small customizable library to aid development of sc2 zerg bots d
 queens-sc2 was created to allow zerg authors to rapidly develop a bot without being encumbered by queen management.
 Using policies that can be updated at any time `queens-sc2` provides a lot of flexibility, whether that would be aggressive nydus play, defensive queens or a mass creep style
 
+## sharpy-sc2 support
+Thanks to [lladdy](https://github.com/lladdy), `queens-sc2` can now also be integrated with [sharpy-sc2](https://github.com/DrInfy/sharpy-sc2). See [here](./queens_sc2/sharpy/README.md) for documentation and example code.
+
+Otherwise the rest of this readme assumes integration with `python-sc2`
+
+# Setting up `queens-sc2` to work with `python-sc2`
 ## Prerequisites 
-It is expected the user has already installed [python-sc2](https://github.com/BurnySc2/python-sc2), `queens-sc2` also relies on numpy and scipy.
+It is expected the user has already installed [python-sc2](https://github.com/BurnySc2/python-sc2), `queens-sc2` also relies on numpy and scipy (any modern version is fine).
 
 ## Getting started
 Clone or download this repository and put the `queens_sc2` directory in your bot folder like so:
@@ -15,9 +21,9 @@ MyBot
 └───your bot files and directories
 ```
 
-Alternatively feel free to download [QueenBot](https://aiarena.net/bots/201/) from the AI Arena ladder.
+Alternatively feel free to download [QueenBot](https://aiarena.net/bots/201/) from the AI Arena ladder which always contains the most up to date version of `queens-sc2`.
 
-## Example bot file
+## Example bot file using `python-sc2`
 Out of the box, the library will run without a policy but remember you have to build the queens yourself:
 ```python
 from sc2 import BotAI
@@ -181,11 +187,11 @@ After which the queens is picked back up and flown to the next creep location.
 ```python
 await self.queens.manage_queens(
     iteration, 
-    creep_queen_dropperlords=self.my_freely_available_dropperlords
+    creep_queen_dropperlord_tags=self.my_freely_available_dropperlord_tags
 )
 ```
 
-Despite only a single dropperlord being supported currently, a `Units` collection is required, in case multiple dropperlords are supported in the future.
+Despite only a single dropperlord being supported currently, a `Set` of unit tags is required, in case multiple dropperlords are supported in the future.
 
 ### SC2 Map Analyzer support
 `queens-sc2` comes with completely optional support for [SC2 Map Analyzer](https://github.com/eladyaniv01/SC2MapAnalysis), 
