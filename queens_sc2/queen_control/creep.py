@@ -17,6 +17,8 @@ from queens_sc2.queen_control.base_unit import BaseUnit
 
 TARGETED_CREEP_SPREAD: str = "TARGETED"
 TIME_TO_CLEAR_PENDING_CREEP_POSITION: int = 10
+# 11 seconds before a tumor can be spread again (after it's finished building)
+TUMOR_COOLDOWN: int = int(11 * 22.4) + 7
 
 
 class Creep(BaseUnit):
@@ -44,7 +46,8 @@ class Creep(BaseUnit):
         # keep track of positions where queen is on route to lay a tumor
         # tuple where first element is position, and second the time it was added so we can clear it out if need be
         self.pending_positions: List[Tuple[Point2, float]] = []
-        self.active_tumors: Dict[int:float] = {}
+        self.active_tumors: Dict[int:float] = dict()
+        self.tumors_cooldown: Dict[int:int] = dict()
 
     @property
     @functools.lru_cache()
@@ -57,7 +60,7 @@ class Creep(BaseUnit):
 
         return 0.0
 
-    async def handle_unit(
+    def handle_unit(
         self,
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
@@ -74,13 +77,13 @@ class Creep(BaseUnit):
         should_spread_creep: bool = self._check_queen_can_spread_creep(unit)
         self.creep_targets = self.policy.creep_targets
 
-        if await self.keep_queen_safe(avoidance_grid, grid, unit):
+        if self.keep_queen_safe(avoidance_grid, grid, unit):
             return
         min_priority: int = 2 if should_spread_creep else 1
         if priority_enemy_units and priority_enemy_units.amount >= min_priority:
-            await self.do_queen_micro(unit, priority_enemy_units, grid)
+            self.do_queen_micro(unit, priority_enemy_units, grid)
         elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
-            await self.do_queen_micro(
+            self.do_queen_micro(
                 unit, self.bot.enemy_units, grid, attack_static_defence=False
             )
         elif (
@@ -88,7 +91,7 @@ class Creep(BaseUnit):
             and air_threats_near_bases
             and not should_spread_creep
         ):
-            await self.do_queen_micro(
+            self.do_queen_micro(
                 unit, air_threats_near_bases, grid, attack_static_defence=False
             )
         elif (
@@ -96,7 +99,7 @@ class Creep(BaseUnit):
             and ground_threats_near_bases
             and not should_spread_creep
         ):
-            await self.do_queen_micro(
+            self.do_queen_micro(
                 unit, ground_threats_near_bases, grid, attack_static_defence=False
             )
         # queen is on route to a tumor but encounters enemy units
@@ -115,14 +118,14 @@ class Creep(BaseUnit):
             and not unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR)
             and self.creep_coverage < self.policy.target_perc_coverage
         ):
-            await self.spread_creep(unit, grid)
+            self.spread_creep(unit, grid)
         elif (
             self.map_data
             and grid is not None
             and not unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR)
             and not self.is_position_safe(grid, unit.position)
         ):
-            await self.move_towards_safe_spot(unit, grid)
+            self.move_towards_safe_spot(unit, grid)
         elif unit.distance_to(
             self.policy.rally_point
         ) > 7 and not unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR):
@@ -145,7 +148,7 @@ class Creep(BaseUnit):
     ) -> None:
         self.policy.creep_targets = creep_targets
 
-    async def spread_creep(self, queen: Unit, grid: Optional[np.ndarray]) -> None:
+    def spread_creep(self, queen: Unit, grid: Optional[np.ndarray]) -> None:
         if self.creep_target_index >= len(self.creep_targets):
             self.creep_target_index = 0
 
@@ -194,46 +197,56 @@ class Creep(BaseUnit):
 
         self.creep_target_index += 1
 
-    async def spread_existing_tumors(self):
-        tumors: Units = self.bot.structures.filter(
-            lambda s: s.type_id == UnitID.CREEPTUMORBURROWED
-            and s.tag not in self.used_tumors
-        )
-        if tumors:
-            all_tumors_abilities = await self.bot.get_available_abilities(tumors)
-            for i, abilities in enumerate(all_tumors_abilities):
-                tumor = tumors[i]
+    def spread_existing_tumors(self) -> None:
 
-                if not tumor.is_idle and isinstance(tumor.order_target, Point2):
-                    self.used_tumors.add(tumor.tag)
-                    continue
+        for structure in self.bot.structures:
+            tag: int = structure.tag
+            if (
+                structure.type_id != UnitID.CREEPTUMORBURROWED
+                or tag in self.used_tumors
+            ):
+                continue
 
-                if AbilityId.BUILD_CREEPTUMOR_TUMOR in abilities:
-                    if tumor.tag not in self.active_tumors:
-                        self.active_tumors[tumor.tag] = self.bot.time
+            # detect if this tumor is spent
+            if not structure.is_idle and isinstance(structure.order_target, Point2):
+                self.used_tumors.add(tag)
+                continue
 
-                    should_lay_tumor: bool = True
-                    if (
-                        self.policy.spread_style.upper() == TARGETED_CREEP_SPREAD
-                        # tumors have 10 seconds to find a targeted spot before resorting to random placement
-                        and self.active_tumors[tumor.tag] > self.bot.time - 10
-                    ):
-                        pos: Point2 = self._find_existing_tumor_placement(
-                            tumor.position
-                        )
-                    else:
-                        pos: Point2 = self._find_random_creep_placement(
-                            tumor.position, self.policy.distance_between_existing_tumors
-                        )
-                    if pos:
-                        if (
-                            not self.policy.should_tumors_block_expansions
-                            and self.position_blocks_expansion(pos)
-                        ) or self.position_near_enemy(pos):
-                            should_lay_tumor = False
-                        if should_lay_tumor:
-                            self.active_tumors.pop(tumor.tag)
-                            tumor(AbilityId.BUILD_CREEPTUMOR_TUMOR, pos)
+            current_frame: int = self.bot.state.game_loop
+
+            # this is a new tumor, add it to our records and continue to next iteration
+            if tag not in self.tumors_cooldown:
+                self.tumors_cooldown[tag] = current_frame
+                continue
+
+            # not ready to spread yet, continue
+            if current_frame < self.tumors_cooldown[tag] + TUMOR_COOLDOWN:
+                continue
+
+            if tag not in self.active_tumors:
+                self.active_tumors[tag] = self.bot.time
+
+            should_lay_tumor: bool = True
+            if (
+                self.policy.spread_style.upper() == TARGETED_CREEP_SPREAD
+                # tumors have 5 seconds to find a targeted spot before resorting to random placement
+                and self.active_tumors[tag] > self.bot.time - 5.0
+            ):
+                pos: Point2 = self._find_existing_tumor_placement(structure.position)
+            else:
+                pos: Point2 = self._find_random_creep_placement(
+                    structure.position, self.policy.distance_between_existing_tumors
+                )
+            if pos:
+                if (
+                    not self.policy.should_tumors_block_expansions
+                    and self.position_blocks_expansion(pos)
+                ) or self.position_near_enemy(pos):
+                    should_lay_tumor = False
+                if should_lay_tumor:
+                    self.active_tumors.pop(tag)
+                    self.tumors_cooldown.pop(tag)
+                    structure(AbilityId.BUILD_CREEPTUMOR_TUMOR, pos)
 
     def _clear_pending_positions(self) -> None:
         queen_tumors = self.bot.structures({UnitID.CREEPTUMORQUEEN})

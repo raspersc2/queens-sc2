@@ -28,7 +28,7 @@ if __name__ == "__main__":
         sc2.maps.get(random_map),
         [
             bot,
-            Computer(Race.Protoss, Difficulty.Medium),
+            Computer(Race.Protoss, Difficulty.Easy),
         ],
         realtime=False,
     )

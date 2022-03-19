@@ -33,7 +33,7 @@ class CreepDropperlord(BaseUnit):
         self.first_iteration: bool = True
         self.unloaded_at: float = 0.0
 
-    async def handle_queen_dropperlord(
+    def handle_queen_dropperlord(
         self,
         creep_map: np.ndarray,
         queen_tag: int,
@@ -62,7 +62,7 @@ class CreepDropperlord(BaseUnit):
             self.first_iteration = False
 
         keep_queen_safe: bool = False
-        if queen and await self.keep_queen_safe(avoidance_grid, grid, queen):
+        if queen and self.keep_queen_safe(avoidance_grid, grid, queen):
             keep_queen_safe = True
 
         if len(creep_queen_dropperlord_tags) > 0:
@@ -70,16 +70,16 @@ class CreepDropperlord(BaseUnit):
                 lambda u: u.tag in creep_queen_dropperlord_tags
             )
             if ready_dropperlords:
-                await self._manage_queen_dropperlord(
+                self._manage_queen_dropperlord(
                     ready_dropperlords.first, air_grid, grid, queen
                 )
 
             if queen and not keep_queen_safe:
-                await self._manage_dropperlord_queen(
+                self._manage_dropperlord_queen(
                     ready_dropperlords, air_grid, grid, queen
                 )
 
-    async def handle_unit(
+    def handle_unit(
         self,
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
@@ -97,7 +97,7 @@ class CreepDropperlord(BaseUnit):
     def update_policy(self, policy: Policy) -> None:
         self.policy = policy
 
-    async def _manage_dropperlord_queen(
+    def _manage_dropperlord_queen(
         self,
         dropperlords: Optional[Units],
         air_grid: np.ndarray,
@@ -114,7 +114,7 @@ class CreepDropperlord(BaseUnit):
                 self._find_new_creep_target(air_grid, grid)
                 return
             else:
-                await self.move_towards_safe_spot(queen, grid)
+                self.move_towards_safe_spot(queen, grid)
         # not near target and there is a dropperlord, go find it
         elif (
             dropperlord
@@ -135,9 +135,9 @@ class CreepDropperlord(BaseUnit):
             queen.move(move_to)
         # no dropperlord right now
         elif not dropperlord:
-            await self.move_towards_safe_spot(queen, grid)
+            self.move_towards_safe_spot(queen, grid)
 
-    async def _manage_queen_dropperlord(
+    def _manage_queen_dropperlord(
         self,
         dropperlord: Optional[Unit],
         air_grid: np.ndarray,
@@ -159,7 +159,7 @@ class CreepDropperlord(BaseUnit):
 
         # move dropperlord to queen if she is not inside right now
         if dropperlord.cargo_used == 0:
-            await self._move_dropperlord_to_queen(dropperlord, air_grid, queen)
+            self._move_dropperlord_to_queen(dropperlord, air_grid, queen)
         # queen in dropperlord, move to a target
         else:
             if (
@@ -189,7 +189,7 @@ class CreepDropperlord(BaseUnit):
                 dropperlord(AbilityId.UNLOADALLAT_OVERLORD, self.current_creep_target)
                 self.unloaded_at = self.bot.time
 
-    async def _move_dropperlord_to_queen(
+    def _move_dropperlord_to_queen(
         self, dropperlord: Unit, grid: Optional[np.ndarray], queen: Optional[Unit]
     ) -> None:
         if not queen:

@@ -23,7 +23,7 @@ class Defence(BaseUnit):
         super().__init__(bot, kd_trees, map_data)
         self.policy = defence_policy
 
-    async def handle_unit(
+    def handle_unit(
         self,
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
@@ -36,30 +36,30 @@ class Defence(BaseUnit):
         nydus_canals: Optional[Units] = None,
         natural_position: Optional[Point2] = None,
     ) -> None:
-        if await self.keep_queen_safe(avoidance_grid, grid, unit):
+        if self.keep_queen_safe(avoidance_grid, grid, unit):
             return
         if priority_enemy_units:
-            await self.do_queen_micro(
+            self.do_queen_micro(
                 unit, priority_enemy_units, grid, attack_static_defence=False
             )
         elif self.policy.attack_condition():
-            await self.do_queen_offensive_micro(unit, self.policy.attack_target)
+            self.do_queen_offensive_micro(unit, self.policy.attack_target)
         elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
-            await self.do_queen_micro(
+            self.do_queen_micro(
                 unit, self.bot.enemy_units, grid, attack_static_defence=False
             )
         elif self.policy.defend_against_ground and ground_threats_near_bases:
-            await self.do_queen_micro(
+            self.do_queen_micro(
                 unit, ground_threats_near_bases, grid, attack_static_defence=False
             )
         elif self.policy.defend_against_air and air_threats_near_bases:
-            await self.do_queen_micro(unit, air_threats_near_bases, grid)
+            self.do_queen_micro(unit, air_threats_near_bases, grid)
         elif (
             self.map_data
             and grid is not None
             and not self.is_position_safe(grid, unit.position)
         ):
-            await self.move_towards_safe_spot(unit, grid)
+            self.move_towards_safe_spot(unit, grid)
         elif unit.distance_to(self.policy.rally_point) > 3:
             unit.move(self.policy.rally_point)
 

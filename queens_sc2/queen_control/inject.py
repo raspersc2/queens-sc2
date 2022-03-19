@@ -24,7 +24,7 @@ class Inject(BaseUnit):
         super().__init__(bot, kd_trees, map_data)
         self.policy = inject_policy
 
-    async def handle_unit(
+    def handle_unit(
         self,
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
@@ -38,21 +38,21 @@ class Inject(BaseUnit):
         natural_position: Optional[Point2] = None,
     ) -> None:
 
-        if await self.keep_queen_safe(avoidance_grid, grid, unit):
+        if self.keep_queen_safe(avoidance_grid, grid, unit):
             return
         ths: Units = self.bot.townhalls.filter(lambda u: u.is_ready and u.tag == th_tag)
         if ths:
             th: Unit = ths.first
             if priority_enemy_units:
-                await self.do_queen_micro(
+                self.do_queen_micro(
                     unit, priority_enemy_units, grid, attack_static_defence=True
                 )
             elif self.policy.defend_against_ground and ground_threats_near_bases:
-                await self.do_queen_micro(
+                self.do_queen_micro(
                     unit, ground_threats_near_bases, grid, attack_static_defence=True
                 )
             elif self.policy.defend_against_air and air_threats_near_bases:
-                await self.do_queen_micro(
+                self.do_queen_micro(
                     unit, air_threats_near_bases, grid, attack_static_defence=True
                 )
             else:
@@ -60,7 +60,7 @@ class Inject(BaseUnit):
                     unit(AbilityId.EFFECT_INJECTLARVA, th)
                 # control the queen between injects
                 else:
-                    await self._control_inject_queen_near_base(
+                    self._control_inject_queen_near_base(
                         air_threats_near_bases,
                         ground_threats_near_bases,
                         unit,
@@ -72,7 +72,7 @@ class Inject(BaseUnit):
     def update_policy(self, policy: Policy) -> None:
         self.policy = policy
 
-    async def _control_inject_queen_near_base(
+    def _control_inject_queen_near_base(
         self,
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
@@ -101,7 +101,7 @@ class Inject(BaseUnit):
             queen.move(townhall)
 
         elif close_threats:
-            await self.do_queen_micro(queen, close_threats, grid)
+            self.do_queen_micro(queen, close_threats, grid)
 
         # every now and then, check queen is not in the mineral field blocking workers
         elif self.bot.state.game_loop % 32 == 0:
