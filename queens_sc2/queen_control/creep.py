@@ -57,7 +57,7 @@ class Creep(BaseUnit):
 
         return 0.0
 
-    async def handle_unit(
+    def handle_unit(
         self,
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
@@ -74,13 +74,13 @@ class Creep(BaseUnit):
         should_spread_creep: bool = self._check_queen_can_spread_creep(unit)
         self.creep_targets = self.policy.creep_targets
 
-        if await self.keep_queen_safe(avoidance_grid, grid, unit):
+        if self.keep_queen_safe(avoidance_grid, grid, unit):
             return
         min_priority: int = 2 if should_spread_creep else 1
         if priority_enemy_units and priority_enemy_units.amount >= min_priority:
-            await self.do_queen_micro(unit, priority_enemy_units, grid)
+            self.do_queen_micro(unit, priority_enemy_units, grid)
         elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
-            await self.do_queen_micro(
+            self.do_queen_micro(
                 unit, self.bot.enemy_units, grid, attack_static_defence=False
             )
         elif (
@@ -88,7 +88,7 @@ class Creep(BaseUnit):
             and air_threats_near_bases
             and not should_spread_creep
         ):
-            await self.do_queen_micro(
+            self.do_queen_micro(
                 unit, air_threats_near_bases, grid, attack_static_defence=False
             )
         elif (
@@ -96,7 +96,7 @@ class Creep(BaseUnit):
             and ground_threats_near_bases
             and not should_spread_creep
         ):
-            await self.do_queen_micro(
+            self.do_queen_micro(
                 unit, ground_threats_near_bases, grid, attack_static_defence=False
             )
         # queen is on route to a tumor but encounters enemy units
@@ -115,14 +115,14 @@ class Creep(BaseUnit):
             and not unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR)
             and self.creep_coverage < self.policy.target_perc_coverage
         ):
-            await self.spread_creep(unit, grid)
+            self.spread_creep(unit, grid)
         elif (
             self.map_data
             and grid is not None
             and not unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR)
             and not self.is_position_safe(grid, unit.position)
         ):
-            await self.move_towards_safe_spot(unit, grid)
+            self.move_towards_safe_spot(unit, grid)
         elif unit.distance_to(
             self.policy.rally_point
         ) > 7 and not unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR):
@@ -145,7 +145,7 @@ class Creep(BaseUnit):
     ) -> None:
         self.policy.creep_targets = creep_targets
 
-    async def spread_creep(self, queen: Unit, grid: Optional[np.ndarray]) -> None:
+    def spread_creep(self, queen: Unit, grid: Optional[np.ndarray]) -> None:
         if self.creep_target_index >= len(self.creep_targets):
             self.creep_target_index = 0
 

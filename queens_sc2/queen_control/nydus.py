@@ -58,7 +58,7 @@ class Nydus(BaseUnit):
             and s.distance_to(self.policy.nydus_target) > 50
         )
 
-    async def handle_unit(
+    def handle_unit(
         self,
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
@@ -71,7 +71,7 @@ class Nydus(BaseUnit):
         nydus_canals: Optional[Units] = None,
         natural_position: Optional[Point2] = None,
     ) -> None:
-        if await self.keep_queen_safe(avoidance_grid, grid, unit):
+        if self.keep_queen_safe(avoidance_grid, grid, unit):
             return
         canal: Optional[Unit] = None
         network: Optional[Unit] = None
@@ -85,7 +85,7 @@ class Nydus(BaseUnit):
         unit_distance_to_target: float = unit.distance_to(self.policy.nydus_target)
 
         if canal and network:
-            await self._manage_nydus_attack(
+            self._manage_nydus_attack(
                 canal, network, unit, unit_distance_to_target, grid
             )
 
@@ -101,7 +101,7 @@ class Nydus(BaseUnit):
     def update_policy(self, policy: Policy) -> None:
         self.policy = policy
 
-    async def _manage_nydus_attack(
+    def _manage_nydus_attack(
         self,
         canal: Unit,
         network: Unit,
@@ -158,7 +158,7 @@ class Nydus(BaseUnit):
                     if self.attack_ready(unit, target):
                         unit.attack(target)
                     elif self.map_data and grid is not None:
-                        await self.move_towards_safe_spot(unit, grid)
+                        self.move_towards_safe_spot(unit, grid)
                     else:
                         distance: float = (
                             unit.ground_range + unit.radius + target.radius
@@ -171,9 +171,7 @@ class Nydus(BaseUnit):
                     if not self.bot.is_visible(self.policy.nydus_target):
                         unit.move(self.policy.nydus_target)
                     else:
-                        await self.do_queen_offensive_micro(
-                            unit, self.policy.attack_target
-                        )
+                        self.do_queen_offensive_micro(unit, self.policy.attack_target)
 
     def _get_target_from_close_enemies(self, unit: Unit) -> Unit:
         """Try to find something in range of the queen"""

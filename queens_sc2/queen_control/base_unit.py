@@ -97,7 +97,7 @@ class BaseUnit(ABC):
         return threats
 
     @abstractmethod
-    async def handle_unit(
+    def handle_unit(
         self,
         air_threats_near_bases: Units,
         ground_threats_near_bases: Units,
@@ -160,7 +160,7 @@ class BaseUnit(ABC):
 
         return step_time + turn_time + move_time >= unit.weapon_cooldown / 22.4
 
-    async def keep_queen_safe(
+    def keep_queen_safe(
         self,
         avoidance_grid: Optional[np.ndarray],
         grid: Optional[np.ndarray],
@@ -182,11 +182,11 @@ class BaseUnit(ABC):
                 queen.move(self.bot.start_location)
                 return True
         if self.map_data and not self.is_position_safe(avoidance_grid, queen.position):
-            await self.move_towards_safe_spot(queen, grid)
+            self.move_towards_safe_spot(queen, grid)
             return True
         return False
 
-    async def do_queen_micro(
+    def do_queen_micro(
         self,
         queen: Unit,
         enemy: Units,
@@ -213,7 +213,7 @@ class BaseUnit(ABC):
                 if self.attack_ready(queen, target):
                     queen.attack(target)
                 elif self.map_data and grid is not None:
-                    await self.move_towards_safe_spot(queen, grid)
+                    self.move_towards_safe_spot(queen, grid)
                 else:
                     distance: float = queen.ground_range + queen.radius + target.radius
                     move_to: Point2 = target.position.towards(queen, distance)
@@ -242,13 +242,11 @@ class BaseUnit(ABC):
                     else:
                         queen.move(spore.position)
                 else:
-                    await self.move_towards_safe_spot(queen, grid)
+                    self.move_towards_safe_spot(queen, grid)
             else:
                 queen.move(self.policy.rally_point)
 
-    async def do_queen_offensive_micro(
-        self, queen: Unit, offensive_pos: Point2
-    ) -> None:
+    def do_queen_offensive_micro(self, queen: Unit, offensive_pos: Point2) -> None:
         if not queen or not offensive_pos:
             return
         enemy: Units = self.kd_trees.enemy_units_in_range(queen.position, 15).filter(
@@ -359,13 +357,13 @@ class BaseUnit(ABC):
         # safe because the shape of all_dists (N x 1) means argmin will return an int
         return Point2(all_safe[min_index])
 
-    async def move_towards_safe_spot(
+    def move_towards_safe_spot(
         self, unit: Unit, grid: np.ndarray, radius: int = 7
     ) -> None:
         if self.map_data:
             safe_spot: Point2 = self.find_closest_safe_spot(unit.position, grid, radius)
             path: List[Point2] = self.map_data.pathfind(
-                unit.position, safe_spot, grid, sensitivity=6
+                unit.position, safe_spot, grid, sensitivity=2
             )
             if path:
                 unit.move(path[0])

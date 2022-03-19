@@ -188,7 +188,7 @@ class Queens:
         ):
             await self.creep.spread_existing_tumors()
 
-        await self._handle_queens(
+        self._handle_queens(
             air_threats,
             ground_threats,
             queens,
@@ -269,7 +269,7 @@ class Queens:
     def update_nydus_target(self, nydus_target: Point2) -> None:
         self.nydus.set_nydus_target(nydus_target)
 
-    async def _handle_queens(
+    def _handle_queens(
         self,
         air_threats: Units,
         ground_threats: Units,
@@ -299,7 +299,7 @@ class Queens:
             # if any queen has more than 50 energy, she may transfuse at any time it's required
             if queen.energy >= self.TRANSFUSE_ENERGY_COST:
                 # _handle_transfuse method will return True if queen will transfuse
-                if await self._handle_transfuse(queen):
+                if self._handle_transfuse(queen):
                     continue
             th_tag: int = (
                 self.inject_targets[queen.tag]
@@ -317,7 +317,7 @@ class Queens:
             )
 
             if queen.tag in self.unit_controllers:
-                await self.unit_controllers[queen.tag].handle_unit(
+                self.unit_controllers[queen.tag].handle_unit(
                     air_threats_near_bases=air_threats,
                     ground_threats_near_bases=ground_threats,
                     priority_enemy_units=priority_threats,
@@ -332,7 +332,7 @@ class Queens:
 
         # Note this can't go in the main queen loop, since API doesn't pick up queen while in overlord
         if len(self.creep_dropperlod_tags) > 0:
-            await self.creep_dropperlord.handle_queen_dropperlord(
+            self.creep_dropperlord.handle_queen_dropperlord(
                 creep_map=self.creep.creep_map,
                 queen_tag=self.creep_dropperlod_tags[0],
                 queens=queens,
@@ -342,7 +342,7 @@ class Queens:
                 creep_queen_dropperlord_tags=creep_queen_dropperlord_tags,
             )
 
-    async def _handle_transfuse(self, queen: Unit) -> bool:
+    def _handle_transfuse(self, queen: Unit) -> bool:
         """Deal with a queen transfusing"""
         if queen.is_using_ability(AbilityId.TRANSFUSION_TRANSFUSION):
             return True
