@@ -201,11 +201,12 @@ class BaseUnit(ABC):
             excluded_enemy: Set[UnitID] = EXCLUDE_FROM_ATTACK_TARGETS.union(
                 STATIC_DEFENCE
             )
-        enemy: Units = enemy.filter(
+        _enemy: Units = enemy.filter(
             lambda u: u.type_id not in excluded_enemy
             and (not u.is_cloaked or u.is_cloaked and u.is_revealed)
+            and (not u.is_burrowed or u.is_burrowed and u.is_visible)
         )
-        in_range_enemies: Units = enemy.in_attack_range_of(queen)
+        in_range_enemies: Units = _enemy.in_attack_range_of(queen)
         if in_range_enemies:
             target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
             if target:
@@ -220,14 +221,29 @@ class BaseUnit(ABC):
                         queen.move(move_to)
             else:
                 queen.attack(in_range_enemies.center)
-        elif enemy:
-            target = enemy.closest_to(queen)
+        elif _enemy:
+            target = _enemy.closest_to(queen)
             queen.move(target.position)
         else:
-            if self.map_data and grid is not None:
-                await self.move_towards_safe_spot(queen, grid)
+            # if we get here, it's because we can't see the enemy, try to move to the nearest spore if possible
+            if enemy and self.map_data and grid is not None:
+                # have overseer nearby, attack-move to enemy till above logic picks up the fight
+                if overseers := self.bot.units(UnitID.OVERSEER):
+                    if overseers.closest_to(queen).distance_to(queen) < 10:
+                        queen.attack(enemy.center)
+                        return
+                if spores := self.bot.structures(UnitID.SPORECRAWLER):
+                    spore: Unit = spores.closest_to(queen)
+                    path: List[Point2] = self.map_data.pathfind(
+                        queen.position, spore.position, grid, sensitivity=2
+                    )
+                    if path:
+                        queen.move(path[0])
+                    else:
+                        queen.move(spore.position)
+                else:
+                    await self.move_towards_safe_spot(queen, grid)
             else:
-                # TODO: Smarter behaviour for users without MapAnalyzer (`self.map_data`)
                 queen.move(self.policy.rally_point)
 
     async def do_queen_offensive_micro(
