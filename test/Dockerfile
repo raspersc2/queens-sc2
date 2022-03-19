@@ -52,7 +52,7 @@ WORKDIR /root/queens-sc2
 
 COPY queens_sc2/ queens_sc2/
 
-RUN mv .github/workflows/maps/* ~/StarCraftII/maps
+RUN mv test/maps/* ~/StarCraftII/maps
 
 RUN python -m pip install -r .github/workflows/docker-requirements.txt
 

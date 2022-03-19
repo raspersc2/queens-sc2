@@ -32,11 +32,11 @@ jobs:
         tree
     - name: Load and build docker image
       run: |
-        docker build -t test_image -f .github/workflows/Dockerfile .
+        docker build -t test_image -f ./test/Dockerfile .
 
     - name: Run bots
       run: |
         docker run -it -d --name app1 test_image
         docker exec -i app1 bash -c "tree"
-        docker exec -i app1 bash -c "python .github/travis_test_script.py ./test/${{ matrix.opponents }}"
+        docker exec -i app1 bash -c "python ./test/travis_test_script.py ./test/${{ matrix.opponents }}"
         docker rm -f app1
