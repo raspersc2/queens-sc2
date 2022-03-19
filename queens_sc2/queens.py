@@ -186,7 +186,7 @@ class Queens:
             self.creep.creep_coverage < 50
             or iteration % int(self.creep.creep_coverage / 8) == 0
         ):
-            await self.creep.spread_existing_tumors()
+            self.creep.spread_existing_tumors()
 
         self._handle_queens(
             air_threats,
@@ -735,7 +735,7 @@ class Queens:
         )
         if tumors:
             for tumor in tumors:
-                self._draw_on_world(tumor.position, f"TUMOR")
+                self._draw_on_world(tumor.position, f"TUMOR {tumor.tag}")
 
         self._draw_on_world(
             self.creep_dropperlord.current_creep_target, "DROPPERLORD CREEP TARGET"
