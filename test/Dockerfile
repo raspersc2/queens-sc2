@@ -54,6 +54,6 @@ COPY queens_sc2/ queens_sc2/
 
 RUN mv test/maps/* ~/StarCraftII/maps
 
-RUN python -m pip install -r .github/workflows/docker-requirements.txt
+RUN python -m pip install -r test/docker-requirements.txt
 
 ENTRYPOINT [ "/bin/bash" ]
