@@ -44,6 +44,10 @@ class Defence(BaseUnit):
             )
         elif self.policy.attack_condition():
             await self.do_queen_offensive_micro(unit, self.policy.attack_target)
+        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
+            await self.do_queen_micro(
+                unit, self.bot.enemy_units, grid, attack_static_defence=False
+            )
         elif self.policy.defend_against_ground and ground_threats_near_bases:
             await self.do_queen_micro(
                 unit, ground_threats_near_bases, grid, attack_static_defence=False
@@ -56,7 +60,7 @@ class Defence(BaseUnit):
             and not self.is_position_safe(grid, unit.position)
         ):
             await self.move_towards_safe_spot(unit, grid)
-        elif unit.distance_to(self.policy.rally_point) > 12:
+        elif unit.distance_to(self.policy.rally_point) > 3:
             unit.move(self.policy.rally_point)
 
     def set_attack_target(self, target: Point2) -> None:

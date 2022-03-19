@@ -97,7 +97,7 @@ class Inject(BaseUnit):
             )
 
         # prevent queen wondering off is priority
-        if queen.distance_to(townhall) > 11:
+        if queen.distance_to(townhall) > 12.5:
             queen.move(townhall)
 
         elif close_threats:

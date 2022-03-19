@@ -122,6 +122,9 @@ class CreepDropperlord(BaseUnit):
             and dropperlord.health_percentage > 0.2
             and self.bot.time > self.unloaded_at + self.LOCK_OL_LOADING_FOR
         ):
+            # if queen.distance_to(dropperlord) < 10:
+            #     queen(AbilityId.SMART, dropperlord)
+            # else:
             move_to: Point2 = dropperlord.position
             if self.map_data:
                 path: List[Point2] = self.map_data.pathfind(

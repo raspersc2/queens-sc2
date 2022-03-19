@@ -76,8 +76,13 @@ class Creep(BaseUnit):
 
         if await self.keep_queen_safe(avoidance_grid, grid, unit):
             return
-        if priority_enemy_units:
+        min_priority: int = 2 if should_spread_creep else 1
+        if priority_enemy_units and priority_enemy_units.amount >= min_priority:
             await self.do_queen_micro(unit, priority_enemy_units, grid)
+        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
+            await self.do_queen_micro(
+                unit, self.bot.enemy_units, grid, attack_static_defence=False
+            )
         elif (
             self.policy.defend_against_air
             and air_threats_near_bases
