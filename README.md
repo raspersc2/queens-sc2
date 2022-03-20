@@ -182,7 +182,7 @@ After which the queens is picked back up and flown to the next creep location.
 ** Only supports a single dropperlord and queen combo **
 
 `queens-sc2` will steal a creep queen so ensure your policy reflects this. There are already sane defaults for the creep dropperlord but refer to policy example above.
-`queens-sc2` will NOT morph the dropperlord, and you should pass in a `Units` collection of dropperlords via the main `manage_queens` method, for example:
+`queens-sc2` will NOT morph the dropperlord, and you should pass in a `Set` of dropperlord tags via the main `manage_queens` method, for example:
 
 ```python
 await self.queens.manage_queens(
@@ -219,9 +219,6 @@ Example setup with MA (please follow instructions on the MA repo if needed):
             # depending on usecase it may not need a fresh grid every step
             await self.queens.manage_queens(iteration, avoidance_grid=avoidance_grid, grid=ground_grid)
 ```
-
-### Sharpy-Sc2 support
-See [here](./queens_sc2/sharpy/README.md) for documentation regarding integration with [sharpy-sc2](https://github.com/DrInfy/sharpy-sc2).
 
 ### I only want creep spread
 Check the example in `creep_example.py` which shows how to set a creep policy and manage separate groups of queens.
