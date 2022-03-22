@@ -469,7 +469,7 @@ class BaseUnit(ABC):
         """Will the creep tumor block expansion"""
         blocks_expansion: bool = False
         for expansion in self.bot.expansion_locations_list:
-            if position.distance_to(expansion) < 4:
+            if position.distance_to(expansion) < 5.0:
                 blocks_expansion = True
                 break
         return blocks_expansion
