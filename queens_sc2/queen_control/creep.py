@@ -169,19 +169,21 @@ class Creep(BaseUnit):
 
         # if using map_data, creep will follow ground path to the targets
         if self.map_data:
-            pos: Point2 = self._find_closest_to_target_using_path(
+            pos: Optional[Point2] = self._find_closest_to_target_using_path(
                 self.creep_targets[self.creep_target_index], self.creep_map, grid
             )
         else:
-            pos: Point2 = self._find_closest_to_target(
+            pos: [Point2] = self._find_closest_to_target(
                 self.creep_targets[self.creep_target_index], self.creep_map
             )
             # check this position is good, if not try to find something nearby
             if not self._valid_creep_placement(pos):
+                new_pos: Optional[Point2] = None
                 for p in pos.neighbors8:
                     if self._valid_creep_placement(p):
-                        pos = p
+                        new_pos = p
                         break
+                pos = new_pos
 
         if (
             pos
