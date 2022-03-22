@@ -7,7 +7,7 @@ from loguru import logger
 from sc2.bot_ai import BotAI
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
-from sc2.position import Point2, Pointlike
+from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
@@ -15,6 +15,7 @@ from queens_sc2.kd_trees import KDTrees
 from queens_sc2.policy import Policy
 from queens_sc2.queen_control.base_unit import BaseUnit
 
+ALL_TUMOR_TYPES: Set[UnitID] = {UnitID.CREEPTUMORBURROWED, UnitID.CREEPTUMORQUEEN, UnitID.CREEPTUMOR}
 TARGETED_CREEP_SPREAD: str = "TARGETED"
 TIME_TO_CLEAR_PENDING_CREEP_POSITION: int = 10
 # 11 seconds before a tumor can be spread again (after it's finished building)
@@ -48,6 +49,7 @@ class Creep(BaseUnit):
         self.pending_positions: List[Tuple[Point2, float]] = []
         self.active_tumors: Dict[int:float] = dict()
         self.tumors_cooldown: Dict[int:int] = dict()
+        self.tumor_positions: Set[Point2] = set()
 
     @property
     @functools.lru_cache()
@@ -153,42 +155,42 @@ class Creep(BaseUnit):
             self.creep_target_index = 0
 
         if self.first_tumor and self.policy.first_tumor_position:
+            # user has passed in an invalid first tumor position so ignore it
+            if not self._valid_creep_placement(self.policy.first_tumor_position):
+                self.first_tumor = False
+                return
             queen(AbilityId.BUILD_CREEPTUMOR_QUEEN, self.policy.first_tumor_position)
+            self._add_tumor_position(self.policy.first_tumor_position)
             # retry a few times, sometimes queen gets blocked when spawning
             if self.first_tumor_retry_attempts > 5:
                 self.first_tumor = False
             self.first_tumor_retry_attempts += 1
             return
 
-        should_lay_tumor: bool = True
         # if using map_data, creep will follow ground path to the targets
         if self.map_data:
             pos: Point2 = self._find_closest_to_target_using_path(
                 self.creep_targets[self.creep_target_index], self.creep_map, grid
             )
-
         else:
             pos: Point2 = self._find_closest_to_target(
                 self.creep_targets[self.creep_target_index], self.creep_map
             )
+            # check this position is good, if not try to find something nearby
+            if not self._valid_creep_placement(pos):
+                for p in pos.neighbors8:
+                    if self._valid_creep_placement(p):
+                        pos = p
+                        break
 
         if (
-            not pos
-            or (
-                self.policy.should_tumors_block_expansions is False
-                and self.position_blocks_expansion(pos)
-            )
-            or self.position_near_enemy_townhall(pos)
-            or self.position_near_nydus_worm(pos)
-            or self._existing_tumors_too_close(pos)
-            or self.kd_trees.enemy_units_in_range(queen.position, 11).filter(
+            pos
+            and not self.kd_trees.enemy_units_in_range(queen.position, 11).filter(
                 lambda u: not u.is_flying
             )
         ):
-            should_lay_tumor = False
-
-        if should_lay_tumor:
             queen(AbilityId.BUILD_CREEPTUMOR_QUEEN, pos)
+            self._add_tumor_position(pos)
             self.pending_positions.append((pos, self.bot.time))
 
         # can't lay tumor right now, go back home
@@ -198,7 +200,6 @@ class Creep(BaseUnit):
         self.creep_target_index += 1
 
     def spread_existing_tumors(self) -> None:
-
         for structure in self.bot.structures:
             tag: int = structure.tag
             if (
@@ -226,7 +227,6 @@ class Creep(BaseUnit):
             if tag not in self.active_tumors:
                 self.active_tumors[tag] = self.bot.time
 
-            should_lay_tumor: bool = True
             if (
                 self.policy.spread_style.upper() == TARGETED_CREEP_SPREAD
                 # tumors have 5 seconds to find a targeted spot before resorting to random placement
@@ -237,16 +237,11 @@ class Creep(BaseUnit):
                 pos: Point2 = self._find_random_creep_placement(
                     structure.position, self.policy.distance_between_existing_tumors
                 )
-            if pos:
-                if (
-                    not self.policy.should_tumors_block_expansions
-                    and self.position_blocks_expansion(pos)
-                ) or self.position_near_enemy(pos):
-                    should_lay_tumor = False
-                if should_lay_tumor:
-                    self.active_tumors.pop(tag)
-                    self.tumors_cooldown.pop(tag)
-                    structure(AbilityId.BUILD_CREEPTUMOR_TUMOR, pos)
+            if pos and self._valid_creep_placement(pos):
+                self.active_tumors.pop(tag)
+                self.tumors_cooldown.pop(tag)
+                self._add_tumor_position(pos)
+                structure(AbilityId.BUILD_CREEPTUMOR_TUMOR, pos)
 
     def _clear_pending_positions(self) -> None:
         queen_tumors = self.bot.structures({UnitID.CREEPTUMORQUEEN})
@@ -259,17 +254,6 @@ class Creep(BaseUnit):
             and self.bot.time
             > pending_position[1] + TIME_TO_CLEAR_PENDING_CREEP_POSITION
         ]
-
-    def _find_creep_placement(self, target: Point2) -> Point2:
-        nearest_spot = self.creep_map[
-            np.sum(
-                np.square(np.abs(self.creep_map - np.array([[target.x, target.y]]))),
-                1,
-            ).argmin()
-        ]
-
-        pos = Point2(Pointlike((nearest_spot[0], nearest_spot[1])))
-        return pos
 
     def _find_existing_tumor_placement(self, from_pos: Point2) -> Optional[Point2]:
 
@@ -286,11 +270,7 @@ class Creep(BaseUnit):
             new_pos: Point2 = from_pos.towards(
                 target, self.policy.distance_between_existing_tumors - i
             )
-            if (
-                self.bot.is_visible(new_pos)
-                and self.bot.has_creep(new_pos)
-                and self.bot.in_pathing_grid(new_pos)
-            ):
+            if self._valid_creep_placement(new_pos):
                 return new_pos
 
     def _find_random_creep_placement(
@@ -299,16 +279,10 @@ class Creep(BaseUnit):
         random_position: Point2 = self.get_random_position_from(from_pos, distance)
         # go backwards towards tumor till position is found
         for i in range(5):
+            if not self.bot.in_map_bounds(random_position):
+                return
             creep_pos: Point2 = random_position.towards(from_pos, distance=i)
-            # check the position is within the map
-            if (
-                creep_pos.x < 0
-                or creep_pos.x > self.bot.game_info.map_size[0]
-                or creep_pos.y < 0
-                or creep_pos.y >= self.bot.game_info.map_size[1]
-            ):
-                continue
-            if self.bot.in_pathing_grid(creep_pos) and self.bot.has_creep(creep_pos):
+            if self._valid_creep_placement(creep_pos):
                 return creep_pos
 
     def _find_closest_to_target_using_path(
@@ -346,7 +320,16 @@ class Creep(BaseUnit):
             for point in path:
                 if not self.bot.has_creep(point):
                     # then get closest creep tile, to this no creep tile
-                    return self._find_closest_to_target(point, creep_grid)
+                    new_placement: Point2 = self._find_closest_to_target(point, creep_grid)
+                    # check this position is valid
+                    if not self._valid_creep_placement(new_placement):
+                        for pos in new_placement.neighbors8:
+                            if self._valid_creep_placement(pos):
+                                return pos
+                        # last resort, return the new_placement anyway
+                        return new_placement
+                    else:
+                        return new_placement
 
     def position_near_nydus_worm(self, position: Point2) -> bool:
         """Will the creep tumor block expansion"""
@@ -375,7 +358,7 @@ class Creep(BaseUnit):
         if not min_distance:
             return False
         tumors: Units = self.bot.structures.filter(
-            lambda s: s.type_id in {UnitID.CREEPTUMORBURROWED, UnitID.CREEPTUMORQUEEN}
+            lambda s: s.type_id in ALL_TUMOR_TYPES
         )
         for tumor in tumors:
             if position.distance_to(tumor) < min_distance:
@@ -387,3 +370,33 @@ class Creep(BaseUnit):
                 return True
 
         return False
+
+    def _add_tumor_position(self, position: Point2) -> None:
+        def round_position(pos: float, base=0.5) -> float:
+            return base * round(pos / base)
+        x: float = round_position(position.x)
+        if int(x * 10) % 10 == 0:
+            x += 0.5
+        y: float = round_position(position.y)
+        if int(y * 10) % 10 == 0:
+            y += 0.5
+        pos: Point2 = Point2((x, y))
+        self.tumor_positions.add(pos)
+
+    def _valid_creep_placement(self, position: Point2) -> bool:
+        placeable: bool = self.bot.game_info.placement_grid[position.rounded] == 1
+        return (
+            placeable
+            and self.bot.is_visible(position)
+            and self.bot.has_creep(position)
+            and position not in self.tumor_positions
+            and position not in self.pending_positions
+            and (
+                self.policy.should_tumors_block_expansions is False
+                and not self.position_blocks_expansion(position)
+            )
+            and not self.position_near_enemy_townhall(position)
+            and not self.position_near_nydus_worm(position)
+            and not self._existing_tumors_too_close(position)
+            and not self.position_near_enemy(position)
+        )

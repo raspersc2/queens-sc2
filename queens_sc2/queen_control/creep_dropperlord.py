@@ -152,7 +152,7 @@ class CreepDropperlord(BaseUnit):
         ):
             dropperlord(AbilityId.BEHAVIOR_GENERATECREEPON)
 
-        if dropperlord.health_percentage < 0.2:
+        if dropperlord.health_percentage < 0.2 and self.bot.in_pathing_grid(dropperlord.position):
             dropperlord(AbilityId.UNLOADALLAT_OVERLORD, dropperlord.position)
             self.dropperlord_tag = 0
             return
@@ -186,8 +186,11 @@ class CreepDropperlord(BaseUnit):
                 else:
                     dropperlord.move(self.current_creep_target)
             else:
-                dropperlord(AbilityId.UNLOADALLAT_OVERLORD, self.current_creep_target)
-                self.unloaded_at = self.bot.time
+                if self.bot.in_pathing_grid(dropperlord.position):
+                    dropperlord(AbilityId.UNLOADALLAT_OVERLORD, self.current_creep_target)
+                    self.unloaded_at = self.bot.time
+                else:
+                    dropperlord.move(self.current_creep_target)
 
     def _move_dropperlord_to_queen(
         self, dropperlord: Unit, grid: Optional[np.ndarray], queen: Optional[Unit]
