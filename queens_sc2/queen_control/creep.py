@@ -54,6 +54,7 @@ class Creep(BaseUnit):
         self.active_tumors: Dict[int:float] = dict()
         self.tumors_cooldown: Dict[int:int] = dict()
         self.tumor_positions: Set[Point2] = set()
+        self.tumors: Units = Units([], bot)
 
     @property
     @functools.lru_cache()
@@ -72,6 +73,7 @@ class Creep(BaseUnit):
         ground_threats_near_bases: Units,
         priority_enemy_units: Units,
         unit: Unit,
+        in_range_of_rally_tags: Set[int],
         th_tag: int = 0,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
@@ -79,6 +81,7 @@ class Creep(BaseUnit):
         nydus_canals: Optional[Units] = None,
         natural_position: Optional[Point2] = None,
     ) -> None:
+        self.tumors = self.bot.structures(ALL_TUMOR_TYPES)
 
         should_spread_creep: bool = self._check_queen_can_spread_creep(unit)
         self.creep_targets = self.policy.creep_targets
@@ -88,7 +91,9 @@ class Creep(BaseUnit):
         min_priority: int = 2 if should_spread_creep else 1
         if priority_enemy_units and priority_enemy_units.amount >= min_priority:
             self.do_queen_micro(unit, priority_enemy_units, grid)
-        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
+        elif self.bot.enemy_units and self.kd_trees.get_enemies_in_attack_range_of(
+            unit
+        ):
             self.do_queen_micro(
                 unit, self.bot.enemy_units, grid, attack_static_defence=False
             )
@@ -132,9 +137,9 @@ class Creep(BaseUnit):
             and not self.is_position_safe(grid, unit.position)
         ):
             self.move_towards_safe_spot(unit, grid)
-        elif unit.distance_to(
-            self.policy.rally_point
-        ) > 7 and not unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR):
+        elif unit.tag not in in_range_of_rally_tags and not unit.is_using_ability(
+            AbilityId.BUILD_CREEPTUMOR
+        ):
             if len(unit.orders) > 0:
                 if unit.orders[0].ability.button_name != "CreepTumor":
                     unit.move(self.policy.rally_point)
@@ -181,7 +186,7 @@ class Creep(BaseUnit):
                 self.creep_targets[self.creep_target_index], self.creep_map
             )
             # check this position is good, if not try to find something nearby
-            if pos and not self._valid_creep_placement(pos):
+            if not self._valid_creep_placement(pos):
                 new_pos: Optional[Point2] = None
                 for p in pos.neighbors8:
                     if self._valid_creep_placement(p):
@@ -189,9 +194,9 @@ class Creep(BaseUnit):
                         break
                 pos = new_pos
 
-        if pos and not self.kd_trees.enemy_units_in_range(queen.position, 11).filter(
-            lambda u: not u.is_flying
-        ):
+        if pos and not self.kd_trees.enemy_units_in_range_of_point(
+            queen.position, 11
+        ).filter(lambda u: not u.is_flying):
             queen(AbilityId.BUILD_CREEPTUMOR_QUEEN, pos)
             self._add_tumor_position(pos)
             self.pending_positions.append((pos, self.bot.time))
@@ -203,16 +208,13 @@ class Creep(BaseUnit):
         self.creep_target_index += 1
 
     def spread_existing_tumors(self) -> None:
-        for structure in self.bot.structures:
-            tag: int = structure.tag
-            if (
-                structure.type_id != UnitID.CREEPTUMORBURROWED
-                or tag in self.used_tumors
-            ):
+        for tumor in self.tumors:
+            tag: int = tumor.tag
+            if tumor.type_id != UnitID.CREEPTUMORBURROWED or tag in self.used_tumors:
                 continue
 
             # detect if this tumor is spent
-            if not structure.is_idle and isinstance(structure.order_target, Point2):
+            if not tumor.is_idle and isinstance(tumor.order_target, Point2):
                 self.used_tumors.add(tag)
                 continue
 
@@ -232,22 +234,22 @@ class Creep(BaseUnit):
 
             if (
                 self.policy.spread_style.upper() == TARGETED_CREEP_SPREAD
-                # tumors have 5 seconds to find a targeted spot before resorting to random placement
-                and self.active_tumors[tag] > self.bot.time - 5.0
+                # tumors have 8 seconds to find a targeted spot before resorting to random placement
+                and self.active_tumors[tag] > self.bot.time - 8.0
             ):
-                pos: Point2 = self._find_existing_tumor_placement(structure.position)
+                pos: Point2 = self._find_existing_tumor_placement(tumor.position)
             else:
                 pos: Point2 = self._find_random_creep_placement(
-                    structure.position, self.policy.distance_between_existing_tumors
+                    tumor.position, self.policy.distance_between_existing_tumors
                 )
             if pos and self._valid_creep_placement(pos):
                 self.active_tumors.pop(tag)
                 self.tumors_cooldown.pop(tag)
                 self._add_tumor_position(pos)
-                structure(AbilityId.BUILD_CREEPTUMOR_TUMOR, pos)
+                tumor(AbilityId.BUILD_CREEPTUMOR_TUMOR, pos)
 
     def _clear_pending_positions(self) -> None:
-        queen_tumors = self.bot.structures({UnitID.CREEPTUMORQUEEN})
+        queen_tumors = self.tumors({UnitID.CREEPTUMORQUEEN})
 
         # recreate the pending position list, depending if a tumor has been placed closeby
         self.pending_positions = [
@@ -332,7 +334,7 @@ class Creep(BaseUnit):
                             if self._valid_creep_placement(pos):
                                 return pos
                         # last resort, return the new_placement anyway
-                        return None
+                        return new_placement
                     else:
                         return new_placement
 
@@ -362,10 +364,8 @@ class Creep(BaseUnit):
         # passing 0 or False value into the policy will turn this check off and save computation
         if not min_distance:
             return False
-        tumors: Units = self.bot.structures.filter(
-            lambda s: s.type_id in ALL_TUMOR_TYPES
-        )
-        for tumor in tumors:
+
+        for tumor in self.tumors:
             if position.distance_to(tumor) < min_distance:
                 return True
 

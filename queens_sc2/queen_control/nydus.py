@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Set
 
 from sc2.bot_ai import BotAI
 from sc2.ids.ability_id import AbilityId
@@ -64,6 +64,7 @@ class Nydus(BaseUnit):
         ground_threats_near_bases: Units,
         priority_enemy_units: Units,
         unit: Unit,
+        in_range_of_rally_tags: Set[int],
         th_tag: int = 0,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
@@ -175,18 +176,7 @@ class Nydus(BaseUnit):
 
     def _get_target_from_close_enemies(self, unit: Unit) -> Unit:
         """Try to find something in range of the queen"""
-        if (
-            self.enemy_flying_units_near_nydus_target
-            and self.enemy_flying_units_near_nydus_target.in_attack_range_of(unit)
-        ):
-            return self.enemy_flying_units_near_nydus_target.closest_to(unit)
-        if (
-            self.enemy_ground_units_near_nydus_target
-            and self.enemy_ground_units_near_nydus_target.in_attack_range_of(unit)
-        ):
-            return self.enemy_ground_units_near_nydus_target.closest_to(unit)
-        if (
-            self.enemy_structures_near_nydus_target
-            and self.enemy_structures_near_nydus_target.in_attack_range_of(unit)
-        ):
-            return self.enemy_structures_near_nydus_target.closest_to(unit)
+        if enemy_fliers := self.kd_trees.get_flying_in_attack_range_of(unit):
+            return self.get_target_from_in_range_enemies(enemy_fliers)
+        if enemy_ground := self.kd_trees.get_ground_in_attack_range_of(unit):
+            return self.get_target_from_in_range_enemies(enemy_ground)

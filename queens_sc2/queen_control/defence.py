@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Set
 
 import numpy as np
 
@@ -29,6 +29,7 @@ class Defence(BaseUnit):
         ground_threats_near_bases: Units,
         priority_enemy_units: Units,
         unit: Unit,
+        in_range_of_rally_tags: Set[int],
         th_tag: int = 0,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
@@ -44,7 +45,9 @@ class Defence(BaseUnit):
             )
         elif self.policy.attack_condition():
             self.do_queen_offensive_micro(unit, self.policy.attack_target)
-        elif self.bot.enemy_units and self.bot.enemy_units.in_attack_range_of(unit):
+        elif self.bot.enemy_units and self.kd_trees.get_enemies_in_attack_range_of(
+            unit
+        ):
             self.do_queen_micro(
                 unit, self.bot.enemy_units, grid, attack_static_defence=False
             )
@@ -60,7 +63,7 @@ class Defence(BaseUnit):
             and not self.is_position_safe(grid, unit.position)
         ):
             self.move_towards_safe_spot(unit, grid)
-        elif unit.distance_to(self.policy.rally_point) > 3:
+        elif unit.tag not in in_range_of_rally_tags:
             unit.move(self.policy.rally_point)
 
     def set_attack_target(self, target: Point2) -> None:
