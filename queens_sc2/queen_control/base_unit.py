@@ -222,8 +222,7 @@ class BaseUnit(ABC):
             else:
                 queen.attack(in_range_enemies.center)
         elif _enemy:
-            target = _enemy.closest_to(queen)
-            queen.move(target.position)
+            queen.move(_enemy.closest_to(queen).position)
         else:
             # if we get here, it's because we can't see the enemy, try to move to the nearest spore if possible
             if enemy and self.map_data and grid is not None:
@@ -243,8 +242,13 @@ class BaseUnit(ABC):
                         queen.move(spore.position)
                 else:
                     self.move_towards_safe_spot(queen, grid)
-            else:
-                queen.move(self.policy.rally_point)
+            elif enemy:
+                closest_enemy: Unit = enemy.closest_to(queen)
+                # not attacking right now so move back out of range of enemy
+                distance: float = queen.ground_range + queen.radius + closest_enemy.radius + 1.0
+                move_to: Point2 = closest_enemy.position.towards(queen, distance)
+                if self.bot.in_pathing_grid(move_to):
+                    queen.move(move_to)
 
     def do_queen_offensive_micro(self, queen: Unit, offensive_pos: Point2) -> None:
         if not queen or not offensive_pos:

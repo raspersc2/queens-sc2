@@ -283,14 +283,14 @@ class ZergBot(BotAI):
         return pos
 
     def _select_worker(self, target: Point2) -> Optional[Unit]:
-        workers: Units = self.workers.filter(
+        if workers := self.workers.filter(
             lambda unit: not unit.is_carrying_minerals and unit.is_collecting
-        )
-        return (
-            workers.closest_to(target)
-            if workers
-            else (self.workers.first if self.workers else None)
-        )
+        ):
+            return (
+                workers.closest_to(target)
+                if workers
+                else (self.workers.first if self.workers else None)
+            )
 
 
 if __name__ == "__main__":
