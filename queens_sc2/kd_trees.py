@@ -17,8 +17,8 @@ class KDTrees:
         self.own_tree: Optional[cKDTree] = None
         self.enemy_flying_tree: Optional[cKDTree] = None
 
-        self.enemy_flying: List = []
-        self.enemy_ground: List = []
+        self.enemy_flying: Units = self.empty_units
+        self.enemy_ground: Units = self.empty_units
 
     def update(self) -> None:
         if all_enemy := self.bot.all_enemy_units:
@@ -41,8 +41,7 @@ class KDTrees:
         else:
             return None
 
-    @staticmethod
-    def _split_ground_fliers(units: Units) -> Tuple[List[Unit], List[Unit]]:
+    def _split_ground_fliers(self, units: Units) -> List[Units]:
         """
         Split units into ground units and flying units.
         Returns ground units, then flying units.
@@ -55,7 +54,7 @@ class KDTrees:
                 fly.append(unit)
             else:
                 ground.append(unit)
-        return ground, fly
+        return [Units(ground, self.bot), Units(fly, self.bot)]
 
     def own_units_in_range_of_point(self, position: Point2, distance: float) -> Units:
         """
