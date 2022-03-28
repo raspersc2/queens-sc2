@@ -106,7 +106,7 @@ class KDTrees:
         @param position: the position or list of positions to get in range of
         @param distance: how far away to query
         """
-        if self.enemy_ground_tree is None:
+        if self.enemy_ground_tree is None or not self.enemy_ground:
             return self.empty_units
 
         in_range_list: List[Units] = []
@@ -127,7 +127,7 @@ class KDTrees:
         @param position: the position or list of positions to get in range of
         @param distance: how far away to query
         """
-        if self.enemy_flying_tree is None:
+        if self.enemy_flying_tree is None or not self.enemy_flying:
             return self.empty_units
 
         in_range_list: List[Units] = []
