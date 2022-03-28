@@ -26,8 +26,18 @@ class KDTrees:
             self.enemy_ground, self.enemy_flying = self._split_ground_fliers(all_enemy)
             if len(self.enemy_ground) > 0:
                 self.enemy_ground_tree = self._create_tree(self.enemy_ground)
+            else:
+                self.enemy_ground_tree = None
             if len(self.enemy_flying) > 0:
-                self.enemy_ground_tree = self._create_tree(self.enemy_flying)
+                self.enemy_flying_tree = self._create_tree(self.enemy_flying)
+            else:
+                self.enemy_flying_tree = None
+        else:
+            self.enemy_tree, self.enemy_ground_tree, self.enemy_flying_tree = (
+                None,
+                None,
+                None,
+            )
 
         self.own_tree = self._create_tree(self.bot.units)
 

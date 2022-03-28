@@ -246,39 +246,36 @@ class BaseUnit(ABC):
             elif enemy:
                 closest_enemy: Unit = enemy.closest_to(queen)
                 # not attacking right now so move back out of range of enemy
-                distance: float = queen.ground_range + queen.radius + closest_enemy.radius + 1.0
+                distance: float = (
+                    queen.ground_range + queen.radius + closest_enemy.radius + 1.0
+                )
                 move_to: Point2 = closest_enemy.position.towards(queen, distance)
                 if self.bot.in_pathing_grid(move_to):
                     queen.move(move_to)
 
     def do_queen_offensive_micro(self, queen: Unit, offensive_pos: Point2) -> None:
-        if not queen or not offensive_pos:
+        if not queen:
             return
-        enemy: Units = self.kd_trees.enemy_units_in_range_of_point(
-            queen.position, 15.0
-        ).filter(lambda u: u.type_id not in EXCLUDE_FROM_ATTACK_TARGETS)
+        attack_target: Point2 = (
+            offensive_pos if offensive_pos else self.bot.enemy_start_locations[0]
+        )
         queens: Units = self.bot.units(UnitID.QUEEN)
         own_close_queens: Units = self.kd_trees.own_units_in_range_of_point(
             queen.position, 5
         ).filter(lambda u: u.type_id == UnitID.QUEEN)
-        if enemy:
-            in_range_enemies: Units = enemy.in_attack_range_of(queen)
-            if in_range_enemies:
-                target: Unit = self.get_target_from_in_range_enemies(in_range_enemies)
-                if self.attack_ready(queen, target):
-                    queen.attack(target)
-                else:
-                    # loose queen_control should try to rejoin the queen pack
-                    if own_close_queens.amount <= 3:
-                        queen.move(queens.center)
-                    # otherwise move forward between attacks, since Queen is slow and can get stuck behind each other
-                    else:
-                        queen.move(offensive_pos)
+        if in_attack_range := self.kd_trees.get_enemies_in_attack_range_of(queen):
+            target: Unit = self.get_target_from_in_range_enemies(in_attack_range)
+            if self.attack_ready(queen, target):
+                queen.attack(target)
             else:
-                queen.move(offensive_pos)
-
+                # loose queen_control should try to rejoin the queen pack
+                if own_close_queens.amount <= 3:
+                    queen.move(queens.center)
+                # otherwise move forward between attacks, since Queen is slow and can get stuck behind each other
+                else:
+                    queen.move(attack_target)
         else:
-            queen.attack(offensive_pos)
+            queen.attack(attack_target)
 
     @staticmethod
     def get_target_from_in_range_enemies(in_range_enemies: Units) -> Unit:
