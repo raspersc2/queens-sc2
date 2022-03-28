@@ -18,7 +18,12 @@ class QueensSc2Manager(ManagerBase):
     ManagerBase is from https://github.com/DrInfy/sharpy-sc2/blob/develop/sharpy/managers/core/manager_base.py
     """
 
-    def __init__(self, queen_policy: Dict = None, use_sc2_map_analyzer=False, auto_manage_attack_target=True):
+    def __init__(
+        self,
+        queen_policy: Dict = None,
+        use_sc2_map_analyzer=False,
+        auto_manage_attack_target=True,
+    ):
         super().__init__()
         self.queen_policy = queen_policy
         self.queens = None
@@ -33,6 +38,7 @@ class QueensSc2Manager(ManagerBase):
 
         if self.use_sc2_map_analyzer:
             from MapAnalyzer import MapData
+
             map_data = MapData(self.ai)
             self.ground_grid: np.ndarray = map_data.get_pyastar_grid()
             self.avoidance_grid: np.ndarray = map_data.get_pyastar_grid()
@@ -51,10 +57,12 @@ class QueensSc2Manager(ManagerBase):
             self.update_attack_target(await self._find_attack_position())
 
         # depending on usecase it may not need a fresh grid every step
-        await self.queens.manage_queens(self.knowledge.iteration,
-                                        air_grid=self.air_grid,
-                                        avoidance_grid=self.avoidance_grid,
-                                        grid=self.ground_grid)
+        await self.queens.manage_queens(
+            self.knowledge.iteration,
+            air_grid=self.air_grid,
+            avoidance_grid=self.avoidance_grid,
+            grid=self.ground_grid,
+        )
 
     async def post_update(self):
         pass
@@ -69,19 +77,19 @@ class QueensSc2Manager(ManagerBase):
     async def _find_attack_position(self):
         enemy_units: Units = self.ai.enemy_units.filter(
             lambda u: u.type_id
-                      not in {
-                          UnitTypeId.SCV,
-                          UnitTypeId.DRONE,
-                          UnitTypeId.PROBE,
-                          UnitTypeId.MULE,
-                          UnitTypeId.LARVA,
-                          UnitTypeId.EGG,
-                          UnitTypeId.CHANGELING,
-                          UnitTypeId.CHANGELINGZERGLING,
-                          UnitTypeId.CHANGELINGZERGLINGWINGS,
-                          UnitTypeId.REAPER,
-                      }
-                      and not u.is_flying
+            not in {
+                UnitTypeId.SCV,
+                UnitTypeId.DRONE,
+                UnitTypeId.PROBE,
+                UnitTypeId.MULE,
+                UnitTypeId.LARVA,
+                UnitTypeId.EGG,
+                UnitTypeId.CHANGELING,
+                UnitTypeId.CHANGELINGZERGLING,
+                UnitTypeId.CHANGELINGZERGLINGWINGS,
+                UnitTypeId.REAPER,
+            }
+            and not u.is_flying
         )
         enemy_structures: Units = self.ai.enemy_structures
         if enemy_units:
