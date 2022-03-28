@@ -15,7 +15,11 @@ from queens_sc2.kd_trees import KDTrees
 from queens_sc2.policy import Policy
 from queens_sc2.queen_control.base_unit import BaseUnit
 
-ALL_TUMOR_TYPES: Set[UnitID] = {UnitID.CREEPTUMORBURROWED, UnitID.CREEPTUMORQUEEN, UnitID.CREEPTUMOR}
+ALL_TUMOR_TYPES: Set[UnitID] = {
+    UnitID.CREEPTUMORBURROWED,
+    UnitID.CREEPTUMORQUEEN,
+    UnitID.CREEPTUMOR,
+}
 TARGETED_CREEP_SPREAD: str = "TARGETED"
 TIME_TO_CLEAR_PENDING_CREEP_POSITION: int = 10
 # 11 seconds before a tumor can be spread again (after it's finished building)
@@ -177,7 +181,7 @@ class Creep(BaseUnit):
                 self.creep_targets[self.creep_target_index], self.creep_map
             )
             # check this position is good, if not try to find something nearby
-            if not self._valid_creep_placement(pos):
+            if pos and not self._valid_creep_placement(pos):
                 new_pos: Optional[Point2] = None
                 for p in pos.neighbors8:
                     if self._valid_creep_placement(p):
@@ -185,11 +189,8 @@ class Creep(BaseUnit):
                         break
                 pos = new_pos
 
-        if (
-            pos
-            and not self.kd_trees.enemy_units_in_range(queen.position, 11).filter(
-                lambda u: not u.is_flying
-            )
+        if pos and not self.kd_trees.enemy_units_in_range(queen.position, 11).filter(
+            lambda u: not u.is_flying
         ):
             queen(AbilityId.BUILD_CREEPTUMOR_QUEEN, pos)
             self._add_tumor_position(pos)
@@ -322,14 +323,16 @@ class Creep(BaseUnit):
             for point in path:
                 if not self.bot.has_creep(point):
                     # then get closest creep tile, to this no creep tile
-                    new_placement: Point2 = self._find_closest_to_target(point, creep_grid)
+                    new_placement: Point2 = self._find_closest_to_target(
+                        point, creep_grid
+                    )
                     # check this position is valid
                     if not self._valid_creep_placement(new_placement):
                         for pos in new_placement.neighbors8:
                             if self._valid_creep_placement(pos):
                                 return pos
                         # last resort, return the new_placement anyway
-                        return new_placement
+                        return None
                     else:
                         return new_placement
 
@@ -376,6 +379,7 @@ class Creep(BaseUnit):
     def _add_tumor_position(self, position: Point2) -> None:
         def round_position(pos: float, base=0.5) -> float:
             return base * round(pos / base)
+
         x: float = round_position(position.x)
         if int(x * 10) % 10 == 0:
             x += 0.5

@@ -18,7 +18,9 @@ class SetQueensSc2Policy(ActBase):
 
     async def execute(self) -> bool:
         if not self.done:
-            self.knowledge.get_manager(sharpy.QueensSc2Manager).set_new_policy(self.queen_policy)
+            self.knowledge.get_manager(sharpy.QueensSc2Manager).set_new_policy(
+                self.queen_policy
+            )
             self.print(f"Queens policy has changed.")
             if self.policy_name:
                 self.print(f"New policy: {self.policy_name}")
