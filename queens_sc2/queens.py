@@ -290,6 +290,9 @@ class Queens:
         inject_priority_enemy_units: Units = self._get_priority_enemy_units(
             all_close_threats, self.inject.policy
         )
+        in_range_of_rally_tags: Set[int] = self.kd_trees.own_units_in_range_of_point(
+            self.defence.policy.rally_point, 6.0
+        ).tags
 
         """ Main Queen loop """
         for queen in queens:
@@ -328,6 +331,7 @@ class Queens:
                     nydus_networks=self.nydus_networks,
                     nydus_canals=self.nydus_canals,
                     natural_position=natural_position,
+                    in_range_of_rally_tags=in_range_of_rally_tags,
                 )
 
         # Note this can't go in the main queen loop, since API doesn't pick up queen while in overlord

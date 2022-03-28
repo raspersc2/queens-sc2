@@ -25,6 +25,7 @@ from queens_sc2.consts import (
 )
 from queens_sc2.policy import Policy
 
+EXCLUDE_AIR_THREATS: Set[UnitID] = {UnitID.OVERLORD, UnitID.OVERSEER, UnitID.OBSERVER}
 EXCLUDE_FROM_ATTACK_TARGETS: Set[UnitID] = {UnitID.MULE, UnitID.EGG, UnitID.LARVA}
 EXCLUDE_FROM_POS_NEAR_ENEMY: Set[UnitID] = {
     UnitID.DRONE,
@@ -65,13 +66,12 @@ class BaseUnit(ABC):
         if air_units:
             for th in self.bot.townhalls.ready:
                 closest_enemy: Unit = air_units.closest_to(th)
-                if closest_enemy.position.distance_to(th) < 18:
+                if closest_enemy.position.distance_to(th) < 18.0:
                     air_threats.extend(
                         self.bot.enemy_units.filter(
                             lambda unit: unit.is_flying
                             and not unit.is_hallucination
-                            and unit.type_id
-                            not in {UnitID.OVERLORD, UnitID.OVERSEER, UnitID.OBSERVER}
+                            and unit.type_id not in EXCLUDE_AIR_THREATS
                         )
                     )
             threats = air_threats
@@ -103,6 +103,7 @@ class BaseUnit(ABC):
         ground_threats_near_bases: Units,
         priority_enemy_units: Units,
         unit: Unit,
+        in_range_of_rally_tags: Set[int],
         th_tag: int = 0,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
@@ -169,7 +170,7 @@ class BaseUnit(ABC):
         if queen.has_buff(BuffId.LOCKON):
             if self.map_data:
                 path: List[Point2] = self.map_data.pathfind(
-                    queen.position, self.bot.start_location, grid, sensitivity=6
+                    queen.position, self.bot.start_location, grid, sensitivity=2
                 )
                 if not path or len(path) == 0:
                     move_to: Point2 = self.bot.start_location
@@ -206,9 +207,9 @@ class BaseUnit(ABC):
             and (not u.is_cloaked or u.is_cloaked and u.is_revealed)
             and (not u.is_burrowed or u.is_burrowed and u.is_visible)
         )
-        in_range_enemies: Units = _enemy.in_attack_range_of(queen)
+        in_range_enemies: Units = self.kd_trees.get_enemies_in_attack_range_of(queen)
         if in_range_enemies:
-            target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
+            target: Unit = self.get_target_from_in_range_enemies(in_range_enemies)
             if target:
                 if self.attack_ready(queen, target):
                     queen.attack(target)
@@ -228,7 +229,7 @@ class BaseUnit(ABC):
             if enemy and self.map_data and grid is not None:
                 # have overseer nearby, attack-move to enemy till above logic picks up the fight
                 if overseers := self.bot.units(UnitID.OVERSEER):
-                    if overseers.closest_to(queen).distance_to(queen) < 10:
+                    if overseers.closest_to(queen).distance_to(queen) < 10.0:
                         queen.attack(enemy.center)
                         return
                 if spores := self.bot.structures(UnitID.SPORECRAWLER):
@@ -253,17 +254,17 @@ class BaseUnit(ABC):
     def do_queen_offensive_micro(self, queen: Unit, offensive_pos: Point2) -> None:
         if not queen or not offensive_pos:
             return
-        enemy: Units = self.kd_trees.enemy_units_in_range(queen.position, 15).filter(
-            lambda u: u.type_id not in EXCLUDE_FROM_ATTACK_TARGETS
-        )
+        enemy: Units = self.kd_trees.enemy_units_in_range_of_point(
+            queen.position, 15.0
+        ).filter(lambda u: u.type_id not in EXCLUDE_FROM_ATTACK_TARGETS)
         queens: Units = self.bot.units(UnitID.QUEEN)
-        own_close_queens: Units = self.kd_trees.own_units_in_range(
+        own_close_queens: Units = self.kd_trees.own_units_in_range_of_point(
             queen.position, 5
         ).filter(lambda u: u.type_id == UnitID.QUEEN)
         if enemy:
             in_range_enemies: Units = enemy.in_attack_range_of(queen)
             if in_range_enemies:
-                target: Unit = self._get_target_from_in_range_enemies(in_range_enemies)
+                target: Unit = self.get_target_from_in_range_enemies(in_range_enemies)
                 if self.attack_ready(queen, target):
                     queen.attack(target)
                 else:
@@ -280,7 +281,7 @@ class BaseUnit(ABC):
             queen.attack(offensive_pos)
 
     @staticmethod
-    def _get_target_from_in_range_enemies(in_range_enemies: Units) -> Unit:
+    def get_target_from_in_range_enemies(in_range_enemies: Units) -> Unit:
         """We get the queen_control to prioritise in range flying units"""
         if in_range_enemies.flying:
             lowest_hp: Unit = min(
@@ -297,8 +298,8 @@ class BaseUnit(ABC):
     def get_transfuse_target(
         self, from_pos: Point2, targets_being_transfused: Dict[int, float]
     ) -> Optional[Unit]:
-        transfuse_targets: Units = self.kd_trees.own_units_in_range(
-            from_pos, 11
+        transfuse_targets: Units = self.kd_trees.own_units_in_range_of_point(
+            from_pos, 11.0
         ).filter(
             lambda unit: unit.tag not in targets_being_transfused
             and unit.type_id in UNITS_TO_TRANSFUSE
@@ -314,7 +315,7 @@ class BaseUnit(ABC):
 
     def position_near_enemy(self, pos: Point2) -> bool:
         return (
-            self.kd_trees.enemy_units_in_range(pos, 12)
+            self.kd_trees.enemy_units_in_range_of_point(pos, 12.0)
             .filter(
                 lambda unit: unit.can_attack_ground
                 and unit.type_id not in EXCLUDE_FROM_POS_NEAR_ENEMY
@@ -405,49 +406,6 @@ class BaseUnit(ABC):
         )[0]
 
         return closest_enemy
-
-    def in_attack_range_of(
-        self, unit: Unit, enemies: Units, bonus_distance: Union[int, float] = 0
-    ) -> Optional[Units]:
-        """
-        Get enemies in attack range of a given unit
-
-        @param unit:
-        @param enemies:
-        @param bonus_distance:
-        @return:
-        """
-        if not unit or not enemies:
-            return None
-
-        return enemies.filter(
-            lambda e: self.target_in_range(unit, e, bonus_distance=bonus_distance)
-        )
-
-    def target_in_range(
-        self, unit: Unit, target: Unit, bonus_distance: Union[int, float] = 0
-    ) -> bool:
-        """
-        Check if the target is in range. Includes the target's radius when calculating distance to target.
-
-        @param unit:
-        @param target:
-        @param bonus_distance:
-        @return:
-        """
-        if unit.can_attack_ground and not target.is_flying:
-            unit_attack_range = unit.ground_range
-        elif unit.can_attack_air and (
-            target.is_flying or target.type_id == UNIT_COLOSSUS
-        ):
-            unit_attack_range = unit.air_range
-        else:
-            return False
-
-        # noinspection PyProtectedMember
-        return self.bot._distance_pos_to_pos(unit.position, target.position) <= (
-            unit.radius + target.radius + unit_attack_range + bonus_distance
-        )
 
     def _find_closest_to_target(self, target_pos: Point2, grid: np.ndarray) -> Point2:
         try:
