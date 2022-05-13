@@ -72,5 +72,8 @@ class Defence(BaseUnit):
         """
         self.policy.attack_target = target
 
+    def set_rally_point(self, rally_point: Point2) -> None:
+        self.policy.rally_point = rally_point
+
     def update_policy(self, policy: Policy) -> None:
         self.policy = policy

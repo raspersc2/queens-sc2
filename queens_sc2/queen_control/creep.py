@@ -358,6 +358,9 @@ class Creep(BaseUnit):
         )
         self.no_creep_map = np.vstack((no_creep[1], no_creep[0])).transpose()
 
+    def set_rally_point(self, rally_point: Point2) -> None:
+        self.policy.rally_point = rally_point
+
     def _existing_tumors_too_close(self, position: Point2) -> bool:
         """Using the policy option, check if other tumors are too close"""
         min_distance: int = self.policy.distance_between_queen_tumors

@@ -128,6 +128,9 @@ class ZergBot(BotAI):
         # basic bot that only builds queen_control
         await self.do_basic_zergbot(iteration)
 
+        # update_rally_point test
+        # self.queens.update_rally_point(random.choice(self.expansion_locations_list))
+
     @property
     def need_overlord(self) -> bool:
         if self.supply_cap < 200:

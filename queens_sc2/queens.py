@@ -261,6 +261,10 @@ class Queens:
         self.defence.set_attack_target(attack_target)
         self.nydus.set_attack_target(attack_target)
 
+    def update_rally_point(self, rally_point: Point2) -> None:
+        self.creep.set_rally_point(rally_point)
+        self.defence.set_rally_point(rally_point)
+
     def update_creep_targets(
         self, creep_targets: Union[List[Point2], List[Tuple[Point2, Point2]]]
     ) -> None:
