@@ -65,6 +65,7 @@ class Nydus(BaseUnit):
         priority_enemy_units: Units,
         unit: Unit,
         in_range_of_rally_tags: Set[int],
+        queens: Units,
         th_tag: int = 0,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
@@ -87,7 +88,7 @@ class Nydus(BaseUnit):
 
         if canal and network:
             self._manage_nydus_attack(
-                canal, network, unit, unit_distance_to_target, grid
+                canal, network, unit, unit_distance_to_target, queens, grid
             )
 
     def set_attack_target(self, target: Point2) -> None:
@@ -108,6 +109,7 @@ class Nydus(BaseUnit):
         network: Unit,
         unit: Unit,
         unit_distance_to_target: float,
+        queens: Units,
         grid: Optional[np.ndarray] = None,
     ) -> None:
         """
@@ -172,7 +174,9 @@ class Nydus(BaseUnit):
                     if not self.bot.is_visible(self.policy.nydus_target):
                         unit.move(self.policy.nydus_target)
                     else:
-                        self.do_queen_offensive_micro(unit, self.policy.attack_target)
+                        self.do_queen_offensive_micro(
+                            unit, self.policy.attack_target, queens
+                        )
 
     def _get_target_from_close_enemies(self, unit: Unit) -> Unit:
         """Try to find something in range of the queen"""
