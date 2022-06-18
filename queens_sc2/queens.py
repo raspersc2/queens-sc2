@@ -118,7 +118,13 @@ class Queens:
         self.targets_being_transfused: Dict[int, float] = {}
         self.creep.update_creep_map()
         self.unit_controllers: DefaultDict[int, BaseUnit] = defaultdict(BaseUnit)
-        self.map_data = map_data
+        self.map_data: Optional["MapData"] = map_data
+        # if user is using MapData but doesn't pass an argument for a certain grid
+        # save a cached version so it's only calculated the one time rather then every frame
+        self.calculated_default_grids: bool = False
+        self.cached_air_grid: Optional[np.ndarray] = None
+        self.cached_ground_grid: Optional[np.ndarray] = None
+        self.cached_avoidance_grid: Optional[np.ndarray] = None
 
     @property_cache_once_per_frame
     def nydus_canals(self) -> Units:
@@ -166,12 +172,18 @@ class Queens:
             ground_threats: Units = self.defence.enemy_ground_threats
 
         if self.map_data:
+            if not self.calculated_default_grids:
+                self.cached_air_grid = self.map_data.get_clean_air_grid()
+                self.cached_ground_grid = (
+                    self.cached_avoidance_grid
+                ) = self.map_data.get_pyastar_grid()
+
             if air_grid is None:
-                air_grid = self.map_data.get_clean_air_grid()
+                air_grid = self.cached_air_grid
             if grid is None:
-                grid = self.map_data.get_pyastar_grid()
+                grid = self.cached_ground_grid
             if avoidance_grid is None:
-                avoidance_grid = self.map_data.get_pyastar_grid()
+                avoidance_grid = self.cached_avoidance_grid
 
         if queens is None:
             queens: Units = self.bot.units(UnitID.QUEEN)
