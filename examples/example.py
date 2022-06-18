@@ -10,6 +10,7 @@ from sc2.player import Bot, Computer
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
+
 from queens_sc2.queens import Queens
 
 
