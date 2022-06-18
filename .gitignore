@@ -129,6 +129,7 @@ dmypy.json
 .pyre/
 
 .idea
-profile.prof
-Untitled.ipynb
+*.prof
+*.ipynb
 MapAnalyzer/
+sc2/

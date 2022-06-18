@@ -1,21 +1,21 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 from sc2.bot_ai import BotAI
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
-from scipy.spatial.ckdtree import cKDTree
+from scipy.spatial import KDTree
 
 
 class KDTrees:
     def __init__(self, bot: BotAI) -> None:
         self.bot: BotAI = bot
         self.empty_units: Units = Units([], bot)
-        self.enemy_tree: Optional[cKDTree] = None
-        self.own_tree: Optional[cKDTree] = None
-        self.enemy_ground_tree: Optional[cKDTree] = None
-        self.own_tree: Optional[cKDTree] = None
-        self.enemy_flying_tree: Optional[cKDTree] = None
+        self.enemy_tree: Optional[KDTree] = None
+        self.own_tree: Optional[KDTree] = None
+        self.enemy_ground_tree: Optional[KDTree] = None
+        self.own_tree: Optional[KDTree] = None
+        self.enemy_flying_tree: Optional[KDTree] = None
 
         self.enemy_flying: Units = self.empty_units
         self.enemy_ground: Units = self.empty_units
@@ -47,7 +47,7 @@ class KDTrees:
             [unit.position.x, unit.position.y] for unit in units
         ]
         if unit_position_list:
-            return cKDTree(unit_position_list)
+            return KDTree(unit_position_list)
         else:
             return None
 
