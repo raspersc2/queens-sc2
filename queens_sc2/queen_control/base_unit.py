@@ -1,21 +1,12 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Set, Union
-from random import randint
 from math import cos, sin
+from random import randint
+from typing import Dict, List, Optional, Set
 
 import numpy as np
-
-from sc2.bot_ai import BotAI
-from sc2.constants import UNIT_COLOSSUS
-from sc2.ids.buff_id import BuffId
-from sc2.ids.unit_typeid import UnitTypeId as UnitID
-from sc2.position import Point2, Pointlike
-from sc2.unit import Unit
-from sc2.units import Units
 from scipy import spatial
 
-from queens_sc2.kd_trees import KDTrees
 from queens_sc2.cache import property_cache_once_per_frame
 from queens_sc2.consts import (
     CHANGELING_TYPES,
@@ -23,7 +14,14 @@ from queens_sc2.consts import (
     QUEEN_TURN_RATE,
     UNITS_TO_TRANSFUSE,
 )
+from queens_sc2.kd_trees import KDTrees
 from queens_sc2.policy import Policy
+from sc2.bot_ai import BotAI
+from sc2.ids.buff_id import BuffId
+from sc2.ids.unit_typeid import UnitTypeId as UnitID
+from sc2.position import Point2, Pointlike
+from sc2.unit import Unit
+from sc2.units import Units
 
 EXCLUDE_AIR_THREATS: Set[UnitID] = {UnitID.OVERLORD, UnitID.OVERSEER, UnitID.OBSERVER}
 EXCLUDE_FROM_ATTACK_TARGETS: Set[UnitID] = {UnitID.MULE, UnitID.EGG, UnitID.LARVA}
@@ -104,6 +102,7 @@ class BaseUnit(ABC):
         priority_enemy_units: Units,
         unit: Unit,
         in_range_of_rally_tags: Set[int],
+        queens: Units,
         th_tag: int = 0,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
@@ -253,13 +252,14 @@ class BaseUnit(ABC):
                 if self.bot.in_pathing_grid(move_to):
                     queen.move(move_to)
 
-    def do_queen_offensive_micro(self, queen: Unit, offensive_pos: Point2) -> None:
+    def do_queen_offensive_micro(
+        self, queen: Unit, offensive_pos: Point2, queens: Units
+    ) -> None:
         if not queen:
             return
         attack_target: Point2 = (
             offensive_pos if offensive_pos else self.bot.enemy_start_locations[0]
         )
-        queens: Units = self.bot.units(UnitID.QUEEN)
         own_close_queens: Units = self.kd_trees.own_units_in_range_of_point(
             queen.position, 5
         ).filter(lambda u: u.type_id == UnitID.QUEEN)

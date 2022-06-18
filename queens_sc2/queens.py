@@ -341,6 +341,7 @@ class Queens:
                     ground_threats_near_bases=ground_threats,
                     priority_enemy_units=priority_threats,
                     unit=queen,
+                    queens=queens,
                     th_tag=th_tag,
                     avoidance_grid=avoidance_grid,
                     grid=grid,

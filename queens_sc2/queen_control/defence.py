@@ -30,6 +30,7 @@ class Defence(BaseUnit):
         priority_enemy_units: Units,
         unit: Unit,
         in_range_of_rally_tags: Set[int],
+        queens: Units,
         th_tag: int = 0,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
@@ -44,7 +45,7 @@ class Defence(BaseUnit):
                 unit, priority_enemy_units, grid, attack_static_defence=False
             )
         elif self.policy.attack_condition():
-            self.do_queen_offensive_micro(unit, self.policy.attack_target)
+            self.do_queen_offensive_micro(unit, self.policy.attack_target, queens)
         elif self.bot.enemy_units and self.kd_trees.get_enemies_in_attack_range_of(
             unit
         ):

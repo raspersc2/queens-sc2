@@ -31,6 +31,7 @@ class Inject(BaseUnit):
         priority_enemy_units: Units,
         unit: Unit,
         in_range_of_rally_tags: Set[int],
+        queens: Units,
         th_tag: int = 0,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
