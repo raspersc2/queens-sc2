@@ -86,6 +86,7 @@ class CreepDropperlord(BaseUnit):
         priority_enemy_units: Units,
         unit: Unit,
         in_range_of_rally_tags: Set[int],
+        queens: Units,
         th_tag: int = 0,
         avoidance_grid: Optional[np.ndarray] = None,
         grid: Optional[np.ndarray] = None,
@@ -147,15 +148,18 @@ class CreepDropperlord(BaseUnit):
     ) -> None:
         if not dropperlord:
             return
+        # check if queen can be dropped off
+        dropperlord_in_pathable_area: bool = self._in_pathable_area(
+            dropperlord.position, grid
+        )
+
         if (
             not dropperlord.is_using_ability(AbilityId.BEHAVIOR_GENERATECREEPON)
             and dropperlord.cargo_used == 0
         ):
             dropperlord(AbilityId.BEHAVIOR_GENERATECREEPON)
 
-        if dropperlord.health_percentage < 0.2 and self.bot.in_pathing_grid(
-            dropperlord.position
-        ):
+        if dropperlord.health_percentage < 0.2 and dropperlord_in_pathable_area:
             dropperlord(AbilityId.UNLOADALLAT_OVERLORD, dropperlord.position)
             self.dropperlord_tag = 0
             return
@@ -169,8 +173,9 @@ class CreepDropperlord(BaseUnit):
                 self.bot.distance_math_hypot_squared(
                     dropperlord.position, self.current_creep_target
                 )
-                > 25
+                > 25.0
             ):
+                # No creep around here? Great! Change drop position to this location
                 if self._current_area_has_no_creep(grid, dropperlord.position):
                     self.current_creep_target = dropperlord.position
                     return
@@ -189,13 +194,28 @@ class CreepDropperlord(BaseUnit):
                 else:
                     dropperlord.move(self.current_creep_target)
             else:
-                if self.bot.in_pathing_grid(dropperlord.position):
+                if dropperlord_in_pathable_area:
                     dropperlord(
                         AbilityId.UNLOADALLAT_OVERLORD, self.current_creep_target
                     )
                     self.unloaded_at = self.bot.time
                 else:
-                    dropperlord.move(self.current_creep_target)
+                    # one last check we can drop at the target as we are getting close
+                    if self._in_pathable_area(self.current_creep_target, grid):
+                        # looking good, keep going
+                        dropperlord.move(self.current_creep_target)
+                    # not looking like we can drop queen here, find a new place to go to
+                    else:
+                        self._find_new_creep_target(air_grid, grid)
+
+    @staticmethod
+    def _in_pathable_area(position: Point2, grid: np.ndarray) -> bool:
+        # Check each direction and current position is pathable
+        for pos in position.neighbors4:
+            if grid[round(pos[0]), round(pos[1])] == np.inf:
+                return False
+
+        return grid[round(position[0]), round(position[1])] != np.inf
 
     def _move_dropperlord_to_queen(
         self, dropperlord: Unit, grid: Optional[np.ndarray], queen: Optional[Unit]
