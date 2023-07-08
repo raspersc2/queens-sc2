@@ -172,7 +172,7 @@ class KDTrees:
         self, unit: Unit, bonus_distance: int = 0.375
     ) -> Units:
         """Get all enemies in attack range of unit.
-        WARNING: Wont be as accurate as `units.in_attack_range_of` since can't take into account enemy radius
+        WARNING: Won't be as accurate as `units.in_attack_range_of` since can't take into account enemy radius
         Bonus_distance has default of 0.375 (radius of a zergling)
         But this is way faster
         """

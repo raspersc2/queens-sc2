@@ -52,7 +52,6 @@ class QueensSc2Manager(ManagerBase):
         knowledge.register_on_unit_destroyed_listener(self.on_unit_destroyed)
 
     async def update(self):
-
         if self.auto_manage_attack_target:
             self.update_attack_target(await self._find_attack_position())
 

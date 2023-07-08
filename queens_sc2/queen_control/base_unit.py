@@ -205,24 +205,27 @@ class BaseUnit(ABC):
             lambda u: u.type_id not in excluded_enemy
             and (not u.is_cloaked or u.is_cloaked and u.is_revealed)
             and (not u.is_burrowed or u.is_burrowed and u.is_visible)
+            and not u.is_structure
         )
         in_range_enemies: Units = self.kd_trees.get_enemies_in_attack_range_of(queen)
-        if in_range_enemies:
+        in_range_no_structures: Units = in_range_enemies.filter(
+            lambda u: not u.is_structure
+        )
+        target: Optional[Unit] = None
+        if _enemy and not queen.is_attacking:
+            if in_range_no_structures:
+                target: Unit = self.get_target_from_in_range_enemies(in_range_enemies)
+            if target:
+                self.handle_target(queen, target, grid)
+            else:
+                queen.move(_enemy.closest_to(queen).position)
+
+        elif in_range_enemies:
             target: Unit = self.get_target_from_in_range_enemies(in_range_enemies)
             if target:
-                if self.attack_ready(queen, target):
-                    queen.attack(target)
-                elif self.map_data and grid is not None:
-                    self.move_towards_safe_spot(queen, grid)
-                else:
-                    distance: float = queen.ground_range + queen.radius + target.radius
-                    move_to: Point2 = target.position.towards(queen, distance)
-                    if self.bot.in_pathing_grid(move_to):
-                        queen.move(move_to)
+                self.handle_target(queen, target, grid)
             else:
                 queen.attack(in_range_enemies.center)
-        elif _enemy:
-            queen.move(_enemy.closest_to(queen).position)
         else:
             # if we get here, it's because we can't see the enemy, try to move to the nearest spore if possible
             if enemy and self.map_data and grid is not None:
@@ -252,6 +255,19 @@ class BaseUnit(ABC):
                 if self.bot.in_pathing_grid(move_to):
                     queen.move(move_to)
 
+    def handle_target(
+        self, queen: Unit, target: Unit, grid: Optional[np.ndarray] = None
+    ) -> None:
+        if self.attack_ready(queen, target):
+            queen.attack(target)
+        elif self.map_data and grid is not None:
+            self.move_towards_safe_spot(queen, grid)
+        else:
+            distance: float = queen.ground_range + queen.radius + target.radius
+            move_to: Point2 = target.position.towards(queen, distance)
+            if self.bot.in_pathing_grid(move_to):
+                queen.move(move_to)
+
     def do_queen_offensive_micro(
         self, queen: Unit, offensive_pos: Point2, queens: Units
     ) -> None:
@@ -280,7 +296,10 @@ class BaseUnit(ABC):
     @staticmethod
     def get_target_from_in_range_enemies(in_range_enemies: Units) -> Unit:
         """We get the queen_control to prioritise in range flying units"""
-        if in_range_enemies.flying:
+        flying_enemy: Units = in_range_enemies.filter(
+            lambda u: u.is_flying and u.type_id != UnitID.OVERLORD
+        )
+        if flying_enemy:
             lowest_hp: Unit = min(
                 in_range_enemies.flying,
                 key=lambda e: (e.health + e.shield, e.tag),
@@ -312,7 +331,7 @@ class BaseUnit(ABC):
 
     def position_near_enemy(self, pos: Point2) -> bool:
         return (
-            self.kd_trees.enemy_units_in_range_of_point(pos, 12.0)
+            self.kd_trees.enemy_units_in_range_of_point(pos, 10.0)
             .filter(
                 lambda unit: unit.can_attack_ground
                 and unit.type_id not in EXCLUDE_FROM_POS_NEAR_ENEMY

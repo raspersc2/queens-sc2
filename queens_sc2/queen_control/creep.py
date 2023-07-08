@@ -235,8 +235,8 @@ class Creep(BaseUnit):
 
             if (
                 self.policy.spread_style.upper() == TARGETED_CREEP_SPREAD
-                # tumors have 8 seconds to find a targeted spot before resorting to random placement
-                and self.active_tumors[tag] > self.bot.time - 8.0
+                # tumors have 2 seconds to find a targeted spot before resorting to random placement
+                and self.active_tumors[tag] > self.bot.time - 2.0
             ):
                 pos: Point2 = self._find_existing_tumor_placement(tumor.position)
             else:
@@ -262,7 +262,6 @@ class Creep(BaseUnit):
         ]
 
     def _find_existing_tumor_placement(self, from_pos: Point2) -> Optional[Point2]:
-
         # find closest no creep tile that is in pathing grid
         target: Point2 = self._find_closest_to_target(from_pos, self.no_creep_map)
 
@@ -284,9 +283,9 @@ class Creep(BaseUnit):
     ) -> Optional[Point2]:
         random_position: Point2 = self.get_random_position_from(from_pos, distance)
         # go backwards towards tumor till position is found
-        for i in range(5):
+        for i in range(8):
             if not self.bot.in_map_bounds(random_position):
-                return
+                continue
             creep_pos: Point2 = random_position.towards(from_pos, distance=i)
             if self._valid_creep_placement(creep_pos):
                 return creep_pos
@@ -318,10 +317,9 @@ class Creep(BaseUnit):
                 "queens-sc2 was unable to recognise creep_targets from the policy, using basic creep path"
             )
 
-        path: List[Point2] = self.map_data.pathfind(
+        if path := self.map_data.pathfind(
             start_point, end_point, pathing_grid, sensitivity=6
-        )
-        if path:
+        ):
             # find first point in path that has no creep
             for point in path:
                 if not self.bot.has_creep(point):
@@ -331,13 +329,13 @@ class Creep(BaseUnit):
                     )
                     # check this position is valid
                     if not self._valid_creep_placement(new_placement):
+                        # last resort, find something nearby
                         for pos in new_placement.neighbors8:
                             if self._valid_creep_placement(pos):
                                 return pos
-                        # last resort, return the new_placement anyway
-                        return new_placement
                     else:
                         return new_placement
+                    break
 
     def position_near_nydus_worm(self, position: Point2) -> bool:
         """Will the creep tumor block expansion"""

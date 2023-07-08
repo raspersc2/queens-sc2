@@ -46,8 +46,10 @@ class Defence(BaseUnit):
             )
         elif self.policy.attack_condition():
             self.do_queen_offensive_micro(unit, self.policy.attack_target, queens)
-        elif self.bot.enemy_units and self.kd_trees.get_enemies_in_attack_range_of(
-            unit
+        elif (
+            self.bot.enemy_units
+            and self.kd_trees.get_enemies_in_attack_range_of(unit)
+            and (ground_threats_near_bases or air_threats_near_bases)
         ):
             self.do_queen_micro(
                 unit, self.bot.enemy_units, grid, attack_static_defence=False

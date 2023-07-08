@@ -39,7 +39,6 @@ class Inject(BaseUnit):
         nydus_canals: Optional[Units] = None,
         natural_position: Optional[Point2] = None,
     ) -> None:
-
         if self.keep_queen_safe(avoidance_grid, grid, unit):
             return
         ths: Units = self.bot.townhalls.filter(lambda u: u.is_ready and u.tag == th_tag)
@@ -47,18 +46,27 @@ class Inject(BaseUnit):
             th: Unit = ths.first
             if priority_enemy_units:
                 self.do_queen_micro(
-                    unit, priority_enemy_units, grid, attack_static_defence=True
+                    unit, priority_enemy_units, grid, attack_static_defence=False
                 )
             elif self.policy.defend_against_ground and ground_threats_near_bases:
                 self.do_queen_micro(
-                    unit, ground_threats_near_bases, grid, attack_static_defence=True
+                    unit, ground_threats_near_bases, grid, attack_static_defence=False
                 )
             elif self.policy.defend_against_air and air_threats_near_bases:
                 self.do_queen_micro(
-                    unit, air_threats_near_bases, grid, attack_static_defence=True
+                    unit, air_threats_near_bases, grid, attack_static_defence=False
                 )
             else:
-                if unit.energy >= 25:
+                in_attack_range: Units = self.kd_trees.get_enemies_in_attack_range_of(
+                    unit
+                )
+                target: Optional[Unit] = None
+                if in_attack_range:
+                    target = self.get_target_from_in_range_enemies(in_attack_range)
+
+                if target and self.attack_ready(unit, target):
+                    unit.attack(target)
+                elif unit.energy >= 25:
                     unit(AbilityId.EFFECT_INJECTLARVA, th)
                 # control the queen between injects
                 else:

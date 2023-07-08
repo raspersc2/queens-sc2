@@ -394,7 +394,8 @@ class Queens:
         :rtype:
         """
         # If this queen has a role, we might want to steal it for the nydus, or for a creep dropperlord
-        self._check_nydus_role(queen)
+        if self.nydus.policy.active:
+            self._check_nydus_role(queen)
         if creep_queen_dropperlord_tags and len(creep_queen_dropperlord_tags) > 0:
             self._check_creep_dropperlord_role(queen)
 
