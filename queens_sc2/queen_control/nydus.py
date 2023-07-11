@@ -120,6 +120,8 @@ class Nydus(BaseUnit):
         @param unit_distance_to_target:
         @return:
         """
+        if unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR_QUEEN):
+            return
         # user does not have some predefined nydus logic, so we unload the proxy canal for them
         if len(canal.passengers_tags) > 0 and not self.policy.nydus_move_function:
             canal(AbilityId.UNLOADALL_NYDUSWORM)
@@ -145,16 +147,7 @@ class Nydus(BaseUnit):
             else:
                 # queen has enough energy for a transfuse and a tumor, so put a tumor down where she currently is
                 if unit.energy >= 75 and self.bot.has_creep(unit.position):
-                    # check if there are too many tumors already
-                    tumors: Units = self.bot.structures.filter(
-                        lambda s: s.type_id
-                        in {UnitID.CREEPTUMORBURROWED, UnitID.CREEPTUMORQUEEN}
-                        and s.distance_to(unit) < 15
-                    )
-                    if tumors.amount < 7:
-                        unit(AbilityId.BUILD_CREEPTUMOR_QUEEN, unit.position)
-                if unit.is_using_ability(AbilityId.BUILD_CREEPTUMOR_QUEEN):
-                    return
+                    unit(AbilityId.BUILD_CREEPTUMOR_QUEEN, unit.position)
                 # get priority target, ie: target the flying enemies first
                 target: Optional[Unit] = self._get_target_from_close_enemies(unit)
                 if target:

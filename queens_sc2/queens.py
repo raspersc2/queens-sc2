@@ -16,6 +16,7 @@ from queens_sc2.consts import (
     INJECT_POLICY,
     NYDUS_POLICY,
     QueenRoles,
+    UNITS_TO_TRANSFUSE,
 )
 from queens_sc2.kd_trees import KDTrees
 from queens_sc2.queen_control.base_unit import BaseUnit
@@ -177,6 +178,7 @@ class Queens:
                 self.cached_ground_grid = (
                     self.cached_avoidance_grid
                 ) = self.map_data.get_pyastar_grid()
+                self.calculated_default_grids = True
 
             if air_grid is None:
                 air_grid = self.cached_air_grid
@@ -309,6 +311,13 @@ class Queens:
         in_range_of_rally_tags: Set[int] = self.kd_trees.own_units_in_range_of_point(
             self.defence.policy.rally_point, 6.0
         ).tags
+        transfuse_targets: list[Unit] = [
+            u
+            for u in self.bot.all_own_units
+            if u.health_percentage < 0.5
+            and u.tag not in self.targets_being_transfused
+            and u.type_id in UNITS_TO_TRANSFUSE
+        ]
 
         """ Main Queen loop """
         for queen in queens:
@@ -316,9 +325,12 @@ class Queens:
                 continue
             self._assign_queen_role(queen, creep_queen_dropperlord_tags)
             # if any queen has more than 50 energy, she may transfuse at any time it's required
-            if queen.energy >= self.TRANSFUSE_ENERGY_COST:
+            if (
+                queen.energy >= self.TRANSFUSE_ENERGY_COST
+                and len(transfuse_targets) > 0
+            ):
                 # _handle_transfuse method will return True if queen will transfuse
-                if self._handle_transfuse(queen):
+                if self._handle_transfuse(queen, transfuse_targets):
                     continue
             th_tag: int = (
                 self.inject_targets[queen.tag]
@@ -363,7 +375,7 @@ class Queens:
                 creep_queen_dropperlord_tags=creep_queen_dropperlord_tags,
             )
 
-    def _handle_transfuse(self, queen: Unit) -> bool:
+    def _handle_transfuse(self, queen: Unit, transfuse_targets: list[Unit]) -> bool:
         """Deal with a queen transfusing"""
         if queen.is_using_ability(AbilityId.TRANSFUSION_TRANSFUSION):
             return True
@@ -373,14 +385,24 @@ class Queens:
             if self.targets_being_transfused[tag] < self.bot.time:
                 self.targets_being_transfused.pop(tag)
 
-        transfuse_target: Unit = self.defence.get_transfuse_target(
-            queen.position, self.targets_being_transfused
+        transfuse_target: Unit = self._get_transfuse_target(
+            queen.position, transfuse_targets
         )
         if transfuse_target and transfuse_target is not queen:
             queen(AbilityId.TRANSFUSION_TRANSFUSION, transfuse_target)
             self.targets_being_transfused[transfuse_target.tag] = self.bot.time + 0.3
             return True
         return False
+
+    @staticmethod
+    def _get_transfuse_target(
+        from_pos: Point2, transfuse_targets: list[Unit]
+    ) -> Optional[Unit]:
+        targets: list[Unit] = [
+            u for u in transfuse_targets if u.distance_to(from_pos) < 11.0
+        ]
+        if len(targets) > 0:
+            return transfuse_targets[0]
 
     def _assign_queen_role(
         self, queen: Unit, creep_queen_dropperlord_tags: Optional[Set[int]] = None

@@ -252,7 +252,7 @@ class Creep(BaseUnit):
     def _clear_pending_positions(self) -> None:
         queen_tumors = self.tumors({UnitID.CREEPTUMORQUEEN})
 
-        # recreate the pending position list, depending if a tumor has been placed closeby
+        # recreate the pending position list, depending on if a tumor has been placed closeby
         self.pending_positions = [
             pending_position
             for pending_position in self.pending_positions

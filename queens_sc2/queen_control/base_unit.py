@@ -2,17 +2,17 @@ import math
 from abc import ABC, abstractmethod
 from math import cos, sin
 from random import randint
-from typing import Dict, List, Optional, Set
+from typing import List, Optional, Set
 
 import numpy as np
 from scipy import spatial
 
 from queens_sc2.cache import property_cache_once_per_frame
 from queens_sc2.consts import (
+    ALL_STRUCTURES,
     CHANGELING_TYPES,
     GROUND_TOWNHALL_TYPES,
     QUEEN_TURN_RATE,
-    UNITS_TO_TRANSFUSE,
 )
 from queens_sc2.kd_trees import KDTrees
 from queens_sc2.policy import Policy
@@ -209,7 +209,7 @@ class BaseUnit(ABC):
         )
         in_range_enemies: Units = self.kd_trees.get_enemies_in_attack_range_of(queen)
         in_range_no_structures: Units = in_range_enemies.filter(
-            lambda u: not u.is_structure
+            lambda u: u.type_id not in ALL_STRUCTURES
         )
         target: Optional[Unit] = None
         if _enemy and not queen.is_attacking:
@@ -311,19 +311,6 @@ class BaseUnit(ABC):
             )
         return lowest_hp
 
-    def get_transfuse_target(
-        self, from_pos: Point2, targets_being_transfused: Dict[int, float]
-    ) -> Optional[Unit]:
-        transfuse_targets: Units = self.kd_trees.own_units_in_range_of_point(
-            from_pos, 11.0
-        ).filter(
-            lambda unit: unit.tag not in targets_being_transfused
-            and unit.type_id in UNITS_TO_TRANSFUSE
-            and unit.health_percentage < 0.5
-        )
-
-        return transfuse_targets.closest_to(from_pos) if transfuse_targets else None
-
     # noinspection PyMethodMayBeStatic
     def get_turn_speed(self) -> float:
         """Returns turn speed of unit in radians"""
@@ -335,6 +322,7 @@ class BaseUnit(ABC):
             .filter(
                 lambda unit: unit.can_attack_ground
                 and unit.type_id not in EXCLUDE_FROM_POS_NEAR_ENEMY
+                and unit.type_id not in ALL_STRUCTURES
             )
             .amount
             > 0
