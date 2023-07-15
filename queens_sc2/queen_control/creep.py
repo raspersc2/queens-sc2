@@ -161,7 +161,10 @@ class Creep(BaseUnit):
         self.policy.creep_targets = creep_targets
 
     def spread_creep(self, queen: Unit, grid: Optional[np.ndarray]) -> None:
-        if self.creep_target_index >= len(self.creep_targets):
+        try:
+            creep_target: Point2 = self.creep_targets[self.creep_target_index]
+        except IndexError:
+            creep_target: Point2 = self.bot.game_info.map_center
             self.creep_target_index = 0
 
         if self.first_tumor and self.policy.first_tumor_position:
@@ -180,12 +183,10 @@ class Creep(BaseUnit):
         # if using map_data, creep will follow ground path to the targets
         if self.map_data:
             pos: Optional[Point2] = self._find_closest_to_target_using_path(
-                self.creep_targets[self.creep_target_index], self.creep_map, grid
+                creep_target, self.creep_map, grid
             )
         else:
-            pos: [Point2] = self._find_closest_to_target(
-                self.creep_targets[self.creep_target_index], self.creep_map
-            )
+            pos: [Point2] = self._find_closest_to_target(creep_target, self.creep_map)
             # check this position is good, if not try to find something nearby
             if not self._valid_creep_placement(pos):
                 new_pos: Optional[Point2] = None
