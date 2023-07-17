@@ -338,17 +338,6 @@ class Creep(BaseUnit):
                         return new_placement
                     break
 
-    def position_near_nydus_worm(self, position: Point2) -> bool:
-        """Will the creep tumor block expansion"""
-        is_too_close: bool = False
-        worms: Units = self.bot.structures(UnitID.NYDUSCANAL)
-        for worm in worms:
-            # worms spread creep at a 10.5 radius, add a bit of leeway
-            if position.distance_to(worm) < 12:
-                is_too_close = True
-                break
-        return is_too_close
-
     def update_creep_map(self) -> None:
         creep: np.ndarray = np.where(self.bot.state.creep.data_numpy == 1)
         self.creep_map = np.vstack((creep[1], creep[0])).transpose()
@@ -405,7 +394,6 @@ class Creep(BaseUnit):
                 and not self.position_blocks_expansion(position)
             )
             and not self.position_near_enemy_townhall(position)
-            and not self.position_near_nydus_worm(position)
             and not self._existing_tumors_too_close(position)
             and not self.position_near_enemy(position)
         )
